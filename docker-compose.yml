@@ -1,0 +1,136 @@
+services:
+  # PostgreSQL with pgvector
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: btp-postgres
+    environment:
+      POSTGRES_USER: btp
+      POSTGRES_PASSWORD: btp_secret
+      POSTGRES_DB: btp_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U btp"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: btp-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # NestJS API Gateway
+  gateway:
+    build:
+      context: ./apps/gateway
+      dockerfile: Dockerfile
+    container_name: btp-gateway
+    ports:
+      - "3001:3001"
+    environment:
+      DATABASE_URL: postgresql://btp:btp_secret@postgres:5432/btp_db
+      REDIS_URL: redis://redis:6379
+      AI_ENGINE_URL: http://ai-engine:8000
+      JOB_SCRAPER_URL: http://job-scraper:8080
+      GAMIFICATION_URL: http://gamification:8081
+      NOTIFICATIONS_URL: http://notifications:8082
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Next.js Web
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    container_name: btp-web
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_GATEWAY_URL: http://localhost:3001
+    depends_on:
+      - gateway
+
+  # Python AI Engine
+  ai-engine:
+    build:
+      context: ./services/ai-engine
+      dockerfile: Dockerfile
+    container_name: btp-ai-engine
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://btp:btp_secret@postgres:5432/btp_db
+      REDIS_URL: redis://redis:6379
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Go Job Scraper
+  job-scraper:
+    build:
+      context: ./services/job-scraper
+      dockerfile: Dockerfile
+    container_name: btp-job-scraper
+    ports:
+      - "8080:8080"
+    environment:
+      REDIS_URL: redis://redis:6379
+      GATEWAY_URL: http://gateway:3001
+      SERPAPI_KEY: ${SERPAPI_KEY}
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # Rust Gamification
+  gamification:
+    build:
+      context: ./services/gamification
+      dockerfile: Dockerfile
+    container_name: btp-gamification
+    ports:
+      - "8081:8081"
+    environment:
+      DATABASE_URL: postgresql://btp:btp_secret@postgres:5432/btp_db
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Go Notifications
+  notifications:
+    build:
+      context: ./services/notifications
+      dockerfile: Dockerfile
+    container_name: btp-notifications
+    ports:
+      - "8082:8082"
+    environment:
+      REDIS_URL: redis://redis:6379
+      GATEWAY_URL: http://gateway:3001
+    depends_on:
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  redis_data:
