@@ -5,3 +5,4 @@ dist
 .git
 **/.venv
 **/target
+.DS_Store
