@@ -1,0 +1,40 @@
+
+// ── JOBS ──────────────────────────────────────────────
+model Job {
+  id          String   @id @default(uuid())
+  title       String
+  company     String
+  location    String
+  url         String   @unique
+  description String?
+  tags        String[]
+  source      String   // serpapi, adzuna, etc
+  postedAt    DateTime
+  createdAt   DateTime @default(now())
+
+  savedBy SavedJob[]
+}
+
+model SavedJob {
+  id        String   @id @default(uuid())
+  userId    String
+  jobId     String
+  savedAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+  job  Job  @relation(fields: [jobId], references: [id])
+
+  @@unique([userId, jobId])
+}
+
+model JobPreference {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  roles     String[]
+  locations String[]
+  companies String[]
+  remote    Boolean  @default(true)
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+}

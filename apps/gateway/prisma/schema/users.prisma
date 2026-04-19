@@ -1,0 +1,21 @@
+// ── USER ──────────────────────────────────────────────
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Gamification
+  xp        Int      @default(0)
+  level     Int      @default(1)
+  streak    Int      @default(0)
+  lastSeen  DateTime @default(now())
+
+  // Relations
+  savedJobs       SavedJob[]
+  dsaAttempts     DSAAttempt[]
+  interviewSessions InterviewSession[]
+  badges          UserBadge[]
+  jobPreferences  JobPreference?
+}

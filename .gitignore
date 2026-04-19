@@ -56,3 +56,8 @@ test-output
 .env
 .env.*
 !.env.example
+
+# bin
+services/job-scraper/main
+services/job-scraper/bin
+services/job-scraper/go.sum

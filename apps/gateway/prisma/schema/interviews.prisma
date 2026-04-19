@@ -1,0 +1,25 @@
+
+// ── INTERVIEWS ────────────────────────────────────────
+model InterviewSession {
+  id        String          @id @default(uuid())
+  userId    String
+  stage     InterviewStage
+  status    SessionStatus   @default(IN_PROGRESS)
+  feedback  String?
+  score     Int?
+  createdAt DateTime        @default(now())
+  endedAt   DateTime?
+
+  user     User              @relation(fields: [userId], references: [id])
+  messages InterviewMessage[]
+}
+
+model InterviewMessage {
+  id        String   @id @default(uuid())
+  sessionId String
+  role      String   // user | assistant
+  content   String
+  createdAt DateTime @default(now())
+
+  session InterviewSession @relation(fields: [sessionId], references: [id])
+}

@@ -1,0 +1,21 @@
+
+// ── ENUMS ────────────────────────────────────────────
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum InterviewStage {
+  BEHAVIORAL
+  TECHNICAL_SCREEN
+  DSA_LIVE
+  SYSTEM_DESIGN
+  OFFER_DEBRIEF
+}
+
+enum SessionStatus {
+  IN_PROGRESS
+  COMPLETED
+  ABANDONED
+}

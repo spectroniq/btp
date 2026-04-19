@@ -1,0 +1,27 @@
+
+// ── DSA ───────────────────────────────────────────────
+model DSAProblem {
+  id          String   @id @default(uuid())
+  title       String
+  difficulty  Difficulty
+  topic       String
+  description String
+  examples    String[]
+  constraints String[]
+  createdAt   DateTime @default(now())
+
+  attempts DSAAttempt[]
+}
+
+model DSAAttempt {
+  id          String   @id @default(uuid())
+  userId      String
+  problemId   String
+  reasoning   String
+  code        String?
+  feedback    String?
+  createdAt   DateTime @default(now())
+
+  user    User       @relation(fields: [userId], references: [id])
+  problem DSAProblem @relation(fields: [problemId], references: [id])
+}
