@@ -11,7 +11,9 @@ import {
   BookmarkCheck,
   ExternalLink,
   Loader2,
+  RefreshCw,
 } from 'lucide-react';
+import Link from 'next/link';
 
 const FILTERS = [
   'All',
@@ -49,7 +51,22 @@ export default function JobsPage() {
       });
     },
   });
+  const [scraping, setScraping] = useState(false);
 
+  const handleTriggerScrape = async () => {
+    setScraping(true);
+    try {
+      await jobsApi.triggerScrape();
+      setTimeout(
+        () => queryClient.invalidateQueries({ queryKey: ['jobs'] }),
+        3000
+      );
+    } catch {
+      console.error('Failed to trigger scrape');
+    } finally {
+      setScraping(false);
+    }
+  };
   const jobs = data?.jobs ?? [];
 
   const filtered =
@@ -69,13 +86,27 @@ export default function JobsPage() {
             Updated daily · {jobs.length} jobs found
           </p>
         </div>
-        <a
-          href="/jobs/saved"
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white/60 text-sm hover:text-white hover:border-white/20 transition-all"
-        >
-          <Bookmark size={15} />
-          Saved Jobs
-        </a>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleTriggerScrape}
+            disabled={scraping}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1B6CF2]/10 border border-[#1B6CF2]/20 text-[#1B6CF2] text-sm hover:bg-[#1B6CF2]/20 transition-all disabled:opacity-40"
+          >
+            {scraping ? (
+              <Loader2 size={15} className="animate-spin" />
+            ) : (
+              <RefreshCw size={15} />
+            )}
+            {scraping ? 'Fetching...' : 'Fetch Jobs'}
+          </button>
+          <Link
+            href="/jobs/saved"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white/60 text-sm hover:text-white hover:border-white/20 transition-all"
+          >
+            <Bookmark size={15} />
+            Saved Jobs
+          </Link>
+        </div>
       </div>
 
       {/* Filters */}

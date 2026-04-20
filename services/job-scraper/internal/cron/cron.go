@@ -38,10 +38,22 @@ func (c *Scheduler) runDaily() {
 	}
 }
 
-func (c *Scheduler) scrapeAll() {
+func (c *Scheduler) ScrapeAll() {
 	for _, q := range queries {
 		if err := c.scraper.Run(q); err != nil {
 			log.Printf("scrape error for %q: %v", q, err)
 		}
 	}
 }
+
+func (c *Scheduler) scrapeAll() {
+	c.ScrapeAll()
+}
+
+// func (c *Scheduler) scrapeAll() {
+// 	for _, q := range queries {
+// 		if err := c.scraper.Run(q); err != nil {
+// 			log.Printf("scrape error for %q: %v", q, err)
+// 		}
+// 	}
+// }

@@ -8,6 +8,7 @@ import {
   Version,
 } from '@nestjs/common';
 import { JobsService } from './jobs.service';
+import fetch from 'node-fetch';
 
 @Controller({ path: 'jobs', version: '1' })
 // @Version('1')
@@ -38,5 +39,12 @@ export class JobsController {
   @Get('saved')
   saved() {
     return this.jobsService.getSavedJobs('temp-user-id');
+  }
+
+  @Post('trigger-scrape')
+  async triggerScrape() {
+    const scraperUrl = process.env.JOB_SCRAPER_URL ?? 'http://localhost:8080';
+    const response = await fetch(`${scraperUrl}/trigger`, { method: 'POST' });
+    return response.json();
   }
 }

@@ -16,6 +16,7 @@ export const jobsApi = {
   save: (jobId: string) => gateway.post(`/jobs/${jobId}/save`),
   unsave: (jobId: string) => gateway.delete(`/jobs/${jobId}/save`),
   getSaved: () => gateway.get('/jobs/saved'),
+  triggerScrape: () => gateway.post('/jobs/trigger-scrape'),
 };
 
 // DSA
