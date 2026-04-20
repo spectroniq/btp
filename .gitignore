@@ -61,3 +61,8 @@ test-output
 services/job-scraper/main
 services/job-scraper/bin
 services/job-scraper/go.sum
+
+
+__pycache__/*
+_pycache_
+__pycache__
