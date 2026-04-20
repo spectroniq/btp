@@ -20,6 +20,7 @@ model DSAAttempt {
   reasoning   String
   code        String?
   feedback    String?
+  embedding   String? // stored as vector, managed by ai-engine
   createdAt   DateTime @default(now())
 
   user    User       @relation(fields: [userId], references: [id])
