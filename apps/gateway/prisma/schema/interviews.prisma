@@ -12,6 +12,10 @@ model InterviewSession {
 
   user     User              @relation(fields: [userId], references: [id])
   messages InterviewMessage[]
+
+  @@map("interview_sessions")
+  @@index([userId])
+  // @@index([createdAt])
 }
 
 model InterviewMessage {
@@ -22,4 +26,6 @@ model InterviewMessage {
   createdAt DateTime @default(now())
 
   session InterviewSession @relation(fields: [sessionId], references: [id])
+
+  @@map("interview_messages")
 }

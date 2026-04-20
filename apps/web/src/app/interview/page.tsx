@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { interviewApi } from '@/lib/api';
 import { Mic, Send, Loader2, ChevronRight, Award } from 'lucide-react';
-
+import { useAuth } from '@clerk/nextjs';
 const STAGES = [
   {
     id: 'BEHAVIORAL',
@@ -119,6 +119,8 @@ export default function InterviewPage() {
     }
   };
 
+  // Inside component
+  const { userId } = useAuth();
   // Stage selector
   if (!stage) {
     return (

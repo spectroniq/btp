@@ -1,22 +1,18 @@
 import os
-import anthropic
+import asyncio
+import voyageai
 
-client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+# Instantiate once — the Voyage client is thread-safe
+_vo = voyageai.Client(api_key=os.getenv("VOYAGE_API_KEY"))
 
 
 async def embed(text: str) -> list[float]:
-    return await _voyage_embed(text)
-
-
-async def _voyage_embed(text: str) -> list[float]:
-    import voyageai
-    vo = voyageai.Client(api_key=os.getenv("VOYAGE_API_KEY"))
-    result = vo.embed([text], model="voyage-3")
+    """Embed a single string. Runs the blocking Voyage call off the event loop."""
+    result = await asyncio.to_thread(_vo.embed, [text], model="voyage-3")
     return result.embeddings[0]
 
 
 async def embed_many(texts: list[str]) -> list[list[float]]:
-    import voyageai
-    vo = voyageai.Client(api_key=os.getenv("VOYAGE_API_KEY"))
-    result = vo.embed(texts, model="voyage-3")
+    """Embed a batch of strings. Runs the blocking Voyage call off the event loop."""
+    result = await asyncio.to_thread(_vo.embed, texts, model="voyage-3")
     return result.embeddings

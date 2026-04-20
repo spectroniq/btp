@@ -10,7 +10,29 @@ export const aiEngine = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// Jobs
+export const setTokenGetter = (getToken: () => Promise<string | null>) => {
+  const interceptor = async (
+    config: import('axios').InternalAxiosRequestConfig
+  ) => {
+    const token = await getToken();
+    if (token) config.headers['Authorization'] = `Bearer ${token}`;
+    return config;
+  };
+  gateway.interceptors.request.use(interceptor);
+  aiEngine.interceptors.request.use(interceptor);
+};
+
+// kept for backwards compat
+export const setAuthToken = (token: string | null) => {
+  if (token) {
+    gateway.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    aiEngine.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+  } else {
+    delete gateway.defaults.headers.common['Authorization'];
+    delete aiEngine.defaults.headers.common['Authorization'];
+  }
+};
+
 export const jobsApi = {
   getAll: () => gateway.get('/jobs'),
   save: (jobId: string) => gateway.post(`/jobs/${jobId}/save`),
@@ -19,7 +41,6 @@ export const jobsApi = {
   triggerScrape: () => gateway.post('/jobs/trigger-scrape'),
 };
 
-// DSA
 export const dsaApi = {
   reason: (payload: {
     user_id: string;
@@ -29,7 +50,6 @@ export const dsaApi = {
   }) => aiEngine.post('/dsa/reason', payload),
 };
 
-// Interview
 export const interviewApi = {
   message: (payload: {
     user_id: string;

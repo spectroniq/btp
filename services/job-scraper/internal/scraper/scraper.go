@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"time"
 )
@@ -55,7 +56,7 @@ func (s *Scraper) Run(query string) error {
 func (s *Scraper) fetchJobs(query string) ([]Job, error) {
 	url := fmt.Sprintf(
 		"https://serpapi.com/search.json?engine=google_jobs&q=%s&api_key=%s",
-		query, s.apiKey,
+		url.QueryEscape(query), s.apiKey,
 	)
 
 	resp, err := s.client.Get(url)

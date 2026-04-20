@@ -1,119 +1,48 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { Code2, Search, ChevronRight } from 'lucide-react';
+import problemsData from '../../../../data/problems.json';
 
-const PROBLEMS = [
-  {
-    id: 'two-sum',
-    title: 'Two Sum',
-    difficulty: 'Easy',
-    topic: 'Arrays / HashMap',
-    solved: false,
-  },
-  {
-    id: 'valid-parentheses',
-    title: 'Valid Parentheses',
-    difficulty: 'Easy',
-    topic: 'Stack',
-    solved: false,
-  },
-  {
-    id: 'longest-substring',
-    title: 'Longest Substring Without Repeating Characters',
-    difficulty: 'Medium',
-    topic: 'Sliding Window',
-    solved: false,
-  },
-  {
-    id: 'merge-intervals',
-    title: 'Merge Intervals',
-    difficulty: 'Medium',
-    topic: 'Arrays / Sorting',
-    solved: false,
-  },
-  {
-    id: 'binary-tree-level-order',
-    title: 'Binary Tree Level Order Traversal',
-    difficulty: 'Medium',
-    topic: 'Trees / BFS',
-    solved: false,
-  },
-  {
-    id: 'climbing-stairs',
-    title: 'Climbing Stairs',
-    difficulty: 'Easy',
-    topic: 'Dynamic Programming',
-    solved: false,
-  },
-  {
-    id: 'coin-change',
-    title: 'Coin Change',
-    difficulty: 'Medium',
-    topic: 'Dynamic Programming',
-    solved: false,
-  },
-  {
-    id: 'word-break',
-    title: 'Word Break',
-    difficulty: 'Medium',
-    topic: 'Dynamic Programming',
-    solved: false,
-  },
-  {
-    id: 'number-of-islands',
-    title: 'Number of Islands',
-    difficulty: 'Medium',
-    topic: 'Graphs / DFS',
-    solved: false,
-  },
-  {
-    id: 'course-schedule',
-    title: 'Course Schedule',
-    difficulty: 'Medium',
-    topic: 'Graphs / Topological Sort',
-    solved: false,
-  },
-  {
-    id: 'merge-k-sorted-lists',
-    title: 'Merge K Sorted Lists',
-    difficulty: 'Hard',
-    topic: 'Heap / Linked List',
-    solved: false,
-  },
-  {
-    id: 'trapping-rain-water',
-    title: 'Trapping Rain Water',
-    difficulty: 'Hard',
-    topic: 'Two Pointers',
-    solved: false,
-  },
-];
+type Problem = {
+  title: string;
+  slug: string;
+  difficulty: string;
+  topic: string;
+  description: string;
+  examples: string[];
+  constraints: string[];
+  starterCode: string;
+  testCases: { input: unknown; expected: unknown }[];
+};
 
-const DIFFICULTIES = ['All', 'Easy', 'Medium', 'Hard'];
-const TOPICS = [
-  'All',
-  'Arrays / HashMap',
-  'Stack',
-  'Sliding Window',
-  'Trees / BFS',
-  'Dynamic Programming',
-  'Graphs / DFS',
-  'Two Pointers',
-  'Heap / Linked List',
-];
+const PROBLEMS = problemsData as Problem[];
+
+const DIFFICULTIES = ['All', 'EASY', 'MEDIUM', 'HARD'];
+
+const DIFFICULTY_LABELS: Record<string, string> = {
+  EASY: 'Easy',
+  MEDIUM: 'Medium',
+  HARD: 'Hard',
+};
 
 const DIFFICULTY_COLORS: Record<string, string> = {
-  Easy: '#10B981',
-  Medium: '#F0A500',
-  Hard: '#EF4444',
+  EASY: '#10B981',
+  MEDIUM: '#F0A500',
+  HARD: '#EF4444',
 };
 
 export default function DSAPage() {
   const [search, setSearch] = useState('');
   const [difficulty, setDifficulty] = useState('All');
   const [topic, setTopic] = useState('All');
+
+  // Derive unique topics dynamically from the data
+  const topics = useMemo(() => {
+    const unique = Array.from(new Set(PROBLEMS.map((p) => p.topic))).sort();
+    return ['All', ...unique];
+  }, []);
 
   const filtered = PROBLEMS.filter((p) => {
     const matchSearch = p.title.toLowerCase().includes(search.toLowerCase());
@@ -123,9 +52,9 @@ export default function DSAPage() {
   });
 
   const counts = {
-    Easy: PROBLEMS.filter((p) => p.difficulty === 'Easy').length,
-    Medium: PROBLEMS.filter((p) => p.difficulty === 'Medium').length,
-    Hard: PROBLEMS.filter((p) => p.difficulty === 'Hard').length,
+    EASY: PROBLEMS.filter((p) => p.difficulty === 'EASY').length,
+    MEDIUM: PROBLEMS.filter((p) => p.difficulty === 'MEDIUM').length,
+    HARD: PROBLEMS.filter((p) => p.difficulty === 'HARD').length,
   };
 
   return (
@@ -147,13 +76,13 @@ export default function DSAPage() {
               >
                 {count}
               </p>
-              <p className="text-white/30 text-xs">{diff}</p>
+              <p className="text-white/30 text-xs">{DIFFICULTY_LABELS[diff]}</p>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Difficulty filters */}
       <div className="flex gap-3 flex-wrap">
         <div className="flex items-center gap-2 bg-white/5 border border-white/8 rounded-lg px-3 py-2 flex-1 max-w-xs">
           <Search size={14} className="text-white/20 shrink-0" />
@@ -175,7 +104,7 @@ export default function DSAPage() {
                   : 'bg-white/5 text-white/40 hover:text-white'
               }`}
             >
-              {d}
+              {d === 'All' ? 'All' : DIFFICULTY_LABELS[d]}
             </button>
           ))}
         </div>
@@ -183,7 +112,7 @@ export default function DSAPage() {
 
       {/* Topic filters */}
       <div className="flex gap-2 flex-wrap">
-        {TOPICS.map((t) => (
+        {topics.map((t) => (
           <button
             key={t}
             onClick={() => setTopic(t)}
@@ -209,8 +138,8 @@ export default function DSAPage() {
         </div>
         {filtered.map((p, i) => (
           <Link
-            key={p.id}
-            href={`/dsa/problems/${p.id}`}
+            key={p.slug}
+            href={`/dsa/problems/${p.slug}`}
             className="grid grid-cols-[2rem_1fr_6rem_8rem_2rem] gap-4 px-5 py-4 border-b border-white/5 last:border-0 hover:bg-white/2 transition-colors group items-center"
           >
             <span className="text-white/20 text-xs">{i + 1}</span>
@@ -227,7 +156,7 @@ export default function DSAPage() {
               className="text-xs font-medium"
               style={{ color: DIFFICULTY_COLORS[p.difficulty] }}
             >
-              {p.difficulty}
+              {DIFFICULTY_LABELS[p.difficulty]}
             </span>
             <span className="text-white/30 text-xs">{p.topic}</span>
             <ChevronRight
@@ -247,3 +176,4 @@ export default function DSAPage() {
     </div>
   );
 }
+

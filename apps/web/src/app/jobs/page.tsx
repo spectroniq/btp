@@ -67,7 +67,7 @@ export default function JobsPage() {
       setScraping(false);
     }
   };
-  const jobs = data?.jobs ?? [];
+  const jobs = data ?? [];
 
   const filtered =
     activeFilter === 'All'

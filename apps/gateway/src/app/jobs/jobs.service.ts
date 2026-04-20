@@ -18,10 +18,12 @@ export class JobsService {
   }
 
   async findAll(userId: string) {
-    return this.prisma.job.findMany({
+    const jobs = await this.prisma.job.findMany({
       orderBy: { postedAt: 'desc' },
       take: 50,
     });
+    console.log(jobs);
+    return jobs;
   }
 
   async saveJob(userId: string, jobId: string) {

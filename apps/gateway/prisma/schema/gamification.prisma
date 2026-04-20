@@ -8,6 +8,8 @@ model Badge {
   xpReward    Int      @default(0)
 
   users UserBadge[]
+
+  @@map("badges")
 }
 
 model UserBadge {
@@ -20,4 +22,6 @@ model UserBadge {
   badge Badge @relation(fields: [badgeId], references: [id])
 
   @@unique([userId, badgeId])
+
+  @@map("user_badges")
 }

@@ -20,6 +20,7 @@ import {
   BotMessageSquare,
   X,
 } from 'lucide-react';
+import problemsData from '../../../../../data/problems.json';
 
 const MonacoEditor = dynamic(() => import('@monaco-editor/react'), {
   ssr: false,
@@ -30,106 +31,42 @@ const MonacoEditor = dynamic(() => import('@monaco-editor/react'), {
   ),
 });
 
-const PROBLEMS: Record<
-  string,
-  {
-    title: string;
-    difficulty: string;
-    topic: string;
-    description: string;
-    examples: { input: string; output: string; explanation?: string }[];
-    constraints: string[];
-    starterCode: string;
-    testCases: { input: string; expected: string }[];
-  }
-> = {
-  'two-sum': {
-    title: 'Two Sum',
-    difficulty: 'Easy',
-    topic: 'Arrays / HashMap',
-    description:
-      'Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target. You may assume that each input would have exactly one solution, and you may not use the same element twice. You can return the answer in any order.',
-    examples: [
-      {
-        input: 'nums = [2,7,11,15], target = 9',
-        output: '[0,1]',
-        explanation: 'nums[0] + nums[1] = 2 + 7 = 9',
-      },
-      { input: 'nums = [3,2,4], target = 6', output: '[1,2]' },
-      { input: 'nums = [3,3], target = 6', output: '[0,1]' },
-    ],
-    constraints: [
-      '2 <= nums.length <= 10^4',
-      '-10^9 <= nums[i] <= 10^9',
-      'Only one valid answer exists.',
-    ],
-    starterCode: `def two_sum(nums: list[int], target: int) -> list[int]:
-    pass`,
-    testCases: [
-      { input: '[2,7,11,15], 9', expected: '[0,1]' },
-      { input: '[3,2,4], 6', expected: '[1,2]' },
-      { input: '[3,3], 6', expected: '[0,1]' },
-    ],
-  },
-  'valid-parentheses': {
-    title: 'Valid Parentheses',
-    difficulty: 'Easy',
-    topic: 'Stack',
-    description:
-      'Given a string s containing just the characters "(", ")", "{", "}", "[" and "]", determine if the input string is valid. Open brackets must be closed by the same type of brackets, and open brackets must be closed in the correct order.',
-    examples: [
-      { input: 's = "()"', output: 'true' },
-      { input: 's = "()[]{}"', output: 'true' },
-      { input: 's = "(]"', output: 'false' },
-    ],
-    constraints: [
-      '1 <= s.length <= 10^4',
-      's consists of parentheses only "()[]{}"',
-    ],
-    starterCode: `def is_valid(s: str) -> bool:
-    pass`,
-    testCases: [
-      { input: '"()"', expected: 'true' },
-      { input: '"()[]{}"', expected: 'true' },
-      { input: '"(]"', expected: 'false' },
-    ],
-  },
-  'longest-substring': {
-    title: 'Longest Substring Without Repeating Characters',
-    difficulty: 'Medium',
-    topic: 'Sliding Window',
-    description:
-      'Given a string s, find the length of the longest substring without repeating characters.',
-    examples: [
-      {
-        input: 's = "abcabcbb"',
-        output: '3',
-        explanation: 'The answer is "abc", with length 3.',
-      },
-      {
-        input: 's = "bbbbb"',
-        output: '1',
-        explanation: 'The answer is "b", with length 1.',
-      },
-    ],
-    constraints: [
-      '0 <= s.length <= 5 * 10^4',
-      's consists of English letters, digits, symbols and spaces.',
-    ],
-    starterCode: `def length_of_longest_substring(s: str) -> int:
-    pass`,
-    testCases: [
-      { input: '"abcabcbb"', expected: '3' },
-      { input: '"bbbbb"', expected: '1' },
-      { input: '"pwwkew"', expected: '3' },
-    ],
-  },
+type ProblemData = {
+  title: string;
+  slug: string;
+  difficulty: 'EASY' | 'MEDIUM' | 'HARD';
+  topic: string;
+  description: string;
+  examples: string[];
+  constraints: string[];
+  starterCode: string;
+  testCases: { input: unknown; expected: unknown }[];
 };
 
+const ALL_PROBLEMS = problemsData as ProblemData[];
+
+const PROBLEMS_BY_SLUG = Object.fromEntries(
+  ALL_PROBLEMS.map((p) => [p.slug, p])
+);
+
+const DUMMY_LEGACY: Record<string, ProblemData | undefined> = {
+};
+
+// Lookup: try slug map first, fall back to legacy hardcoded map
+function findProblem(id: string): ProblemData | undefined {
+  return PROBLEMS_BY_SLUG[id] ?? DUMMY_LEGACY[id];
+}
+
 const DIFFICULTY_COLORS: Record<string, string> = {
-  Easy: '#10B981',
-  Medium: '#F0A500',
-  Hard: '#EF4444',
+  EASY: '#10B981',
+  MEDIUM: '#F0A500',
+  HARD: '#EF4444',
+};
+
+const DIFFICULTY_LABELS: Record<string, string> = {
+  EASY: 'Easy',
+  MEDIUM: 'Medium',
+  HARD: 'Hard',
 };
 
 type Message = { role: 'user' | 'assistant'; content: string };
@@ -142,7 +79,7 @@ type TestResult = {
 export default function ProblemPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const problem = PROBLEMS[id];
+  const problem = findProblem(id);
 
   const [code, setCode] = useState(problem?.starterCode ?? '');
   const [reasoning, setReasoning] = useState('');
@@ -173,7 +110,8 @@ export default function ProblemPage() {
     await new Promise((r) => setTimeout(r, 1200));
     setTestResults(
       problem.testCases.map((tc) => ({
-        ...tc,
+        input: JSON.stringify(tc.input),
+        expected: JSON.stringify(tc.expected),
         status: Math.random() > 0.4 ? 'pass' : 'fail',
       }))
     );
@@ -184,7 +122,13 @@ export default function ProblemPage() {
     setRunning(true);
     setActiveTab('results');
     await new Promise((r) => setTimeout(r, 1800));
-    setTestResults(problem.testCases.map((tc) => ({ ...tc, status: 'pass' })));
+    setTestResults(
+      problem.testCases.map((tc) => ({
+        input: JSON.stringify(tc.input),
+        expected: JSON.stringify(tc.expected),
+        status: 'pass' as const,
+      }))
+    );
     setRunning(false);
   };
 
@@ -237,7 +181,7 @@ export default function ProblemPage() {
             backgroundColor: DIFFICULTY_COLORS[problem.difficulty] + '1A',
           }}
         >
-          {problem.difficulty}
+          {DIFFICULTY_LABELS[problem.difficulty] ?? problem.difficulty}
         </span>
         <div className="ml-auto flex items-center gap-2">
           <button
@@ -295,17 +239,9 @@ export default function ProblemPage() {
                         <p className="text-white/20 text-xs font-medium">
                           Example {i + 1}
                         </p>
-                        <p className="text-white/50 text-xs font-mono">
-                          Input: {ex.input}
+                        <p className="text-white/50 text-xs font-mono whitespace-pre-wrap">
+                          {ex}
                         </p>
-                        <p className="text-white/50 text-xs font-mono">
-                          Output: {ex.output}
-                        </p>
-                        {ex.explanation && (
-                          <p className="text-white/30 text-xs">
-                            Explanation: {ex.explanation}
-                          </p>
-                        )}
                       </div>
                     ))}
                   </div>

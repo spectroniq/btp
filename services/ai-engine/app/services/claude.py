@@ -68,6 +68,7 @@ async def coach_dsa(
             past_context += f"{i}. {p['reasoning'][:300]}\n"
 
     response = client.messages.create(
+        # model="claude-3-5-sonnet-20241022",
         model="claude-sonnet-4-20250514",
         max_tokens=1000,
         system=DSA_COACH_SYSTEM,
@@ -92,6 +93,7 @@ async def interview_message(
     messages = history + [{"role": "user", "content": user_message}]
 
     response = client.messages.create(
+        # model="claude-3-5-sonnet-20241022",
         model="claude-sonnet-4-20250514",
         max_tokens=1000,
         system=system,
@@ -107,6 +109,7 @@ async def generate_feedback(stage: str, transcript: list[dict]) -> str:
     )
 
     response = client.messages.create(
+        # model="claude-3-5-sonnet-20241022",
         model="claude-sonnet-4-20250514",
         max_tokens=1000,
         system=f"You are evaluating a {stage} interview. Give honest, specific, actionable feedback. Score out of 10. Highlight strengths and clear areas for improvement.",

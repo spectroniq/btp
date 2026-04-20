@@ -4,6 +4,14 @@ import './global.css';
 import Sidebar from '@/components/layout/Sidebar';
 import QueryProvider from '@/components/layout/QueryProvider';
 import MainContent from '@/components/layout/MainLayoutContent';
+import {
+  ClerkProvider,
+  Show,
+  SignInButton,
+  SignUpButton,
+  UserButton,
+} from '@clerk/nextjs';
+import AuthTokenProvider from '@/components/layout/AuthTokenProvider';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -20,12 +28,16 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <QueryProvider>
-          <div className="flex min-h-screen bg-[#0D0D0F]">
-            <Sidebar />
-            <MainContent>{children}</MainContent>
-          </div>
-        </QueryProvider>
+        <ClerkProvider>
+          <QueryProvider>
+            <AuthTokenProvider>
+              <div className="flex min-h-screen bg-[#0D0D0F]">
+                <Sidebar />
+                <MainContent>{children}</MainContent>
+              </div>
+            </AuthTokenProvider>
+          </QueryProvider>
+        </ClerkProvider>
       </body>
     </html>
   );

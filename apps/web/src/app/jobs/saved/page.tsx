@@ -24,7 +24,7 @@ export default function SavedJobsPage() {
     onSuccess: () => refetch(),
   });
 
-  const savedJobs = data?.savedJobs ?? [];
+  const savedJobs = data ?? [];
 
   return (
     <div className="space-y-6">

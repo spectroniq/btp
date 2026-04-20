@@ -2,15 +2,22 @@
 // ── DSA ───────────────────────────────────────────────
 model DSAProblem {
   id          String   @id @default(uuid())
+  slug        String   @unique
   title       String
   difficulty  Difficulty
   topic       String
   description String
   examples    String[]
   constraints String[]
+  starterCode String   @default("")
+  testCases   Json     @default("[]")
   createdAt   DateTime @default(now())
 
   attempts DSAAttempt[]
+
+  @@map("dsa_problems")
+  @@index([difficulty])
+  @@index([topic])
 }
 
 model DSAAttempt {
@@ -25,4 +32,8 @@ model DSAAttempt {
 
   user    User       @relation(fields: [userId], references: [id])
   problem DSAProblem @relation(fields: [problemId], references: [id])
+
+  @@map("dsa_attempts")
+  @@index([userId])
+  @@index([problemId])
 }

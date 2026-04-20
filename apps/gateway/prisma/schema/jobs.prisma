@@ -13,6 +13,8 @@ model Job {
   createdAt   DateTime @default(now())
 
   savedBy SavedJob[]
+
+  @@map("jobs")
 }
 
 model SavedJob {
@@ -26,6 +28,8 @@ model SavedJob {
   job  Job  @relation(fields: [jobId], references: [id])
 
   @@unique([userId, jobId])
+
+  @@map("saved_jobs")
 }
 
 model JobPreference {
@@ -38,4 +42,6 @@ model JobPreference {
   updatedAt DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id])
+
+  @@map("job_preferences")
 }

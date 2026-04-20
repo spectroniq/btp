@@ -13,6 +13,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { useUIStore } from '@/store/ui.store';
+import { useUser, useClerk } from '@clerk/nextjs';
 
 const links = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -25,6 +26,10 @@ const links = [
 export default function Sidebar() {
   const pathname = usePathname();
   const { sidebarOpen, toggleSidebar } = useUIStore();
+
+  // Inside the component
+  const { user } = useUser();
+  const { signOut } = useClerk();
 
   return (
     <aside
@@ -101,22 +106,52 @@ export default function Sidebar() {
       {/* Footer */}
       {sidebarOpen && (
         <div className="p-4 border-t border-white/5">
-          <div className="flex items-center gap-3 px-3 py-2">
-            <div className="w-7 h-7 rounded-full bg-[#F0A500]/20 flex items-center justify-center shrink-0">
-              <span className="text-[#F0A500] text-xs font-semibold">K</span>
+          <div className="flex items-center justify-between px-3 py-2">
+            <div className="flex items-center gap-3">
+              <div className="w-7 h-7 rounded-full bg-[#F0A500]/20 flex items-center justify-center shrink-0 overflow-hidden">
+                {user?.imageUrl ? (
+                  <img
+                    src={user.imageUrl}
+                    alt="avatar"
+                    className="w-full h-full object-cover rounded-full"
+                  />
+                ) : (
+                  <span className="text-[#F0A500] text-xs font-semibold">
+                    {user?.firstName?.[0] ?? 'U'}
+                  </span>
+                )}
+              </div>
+              <div>
+                <p className="text-white text-xs font-medium">
+                  {user?.firstName ?? 'User'}
+                </p>
+                <p className="text-white/30 text-xs">Level 1 · 0 XP</p>
+              </div>
             </div>
-            <div>
-              <p className="text-white text-xs font-medium">Kingsley</p>
-              <p className="text-white/30 text-xs">Level 1 · 0 XP</p>
-            </div>
+            <button
+              onClick={() => signOut()}
+              className="text-white/20 hover:text-white/50 transition-colors text-xs"
+            >
+              Out
+            </button>
           </div>
         </div>
       )}
 
       {!sidebarOpen && (
         <div className="p-3 border-t border-white/5 flex justify-center">
-          <div className="w-7 h-7 rounded-full bg-[#F0A500]/20 flex items-center justify-center">
-            <span className="text-[#F0A500] text-xs font-semibold">K</span>
+          <div className="w-7 h-7 rounded-full bg-[#F0A500]/20 flex items-center justify-center overflow-hidden">
+            {user?.imageUrl ? (
+              <img
+                src={user.imageUrl}
+                alt="avatar"
+                className="w-full h-full object-cover rounded-full"
+              />
+            ) : (
+              <span className="text-[#F0A500] text-xs font-semibold">
+                {user?.firstName?.[0] ?? 'U'}
+              </span>
+            )}
           </div>
         </div>
       )}

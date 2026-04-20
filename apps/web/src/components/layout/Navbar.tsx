@@ -2,9 +2,13 @@
 
 import { useState } from 'react';
 import { Search, Bell, Command } from 'lucide-react';
+import { useUser } from '@clerk/nextjs';
 
 export default function Navbar() {
   const [search, setSearch] = useState('');
+
+  // Inside component
+  const { user } = useUser();
 
   return (
     <header className="h-14 border-b border-white/5 bg-[#0D0D0F]/80 backdrop-blur-sm flex items-center px-6 gap-4 sticky top-0 z-40">
@@ -43,8 +47,20 @@ export default function Navbar() {
         </div>
 
         {/* Avatar */}
-        <button className="w-8 h-8 rounded-full bg-[#F0A500]/20 flex items-center justify-center hover:ring-2 hover:ring-[#F0A500]/30 transition-all">
-          <span className="text-[#F0A500] text-xs font-semibold">K</span>
+        <button className="w-8 h-8 rounded-full overflow-hidden hover:ring-2 hover:ring-[#F0A500]/30 transition-all">
+          {user?.imageUrl ? (
+            <img
+              src={user.imageUrl}
+              alt="avatar"
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full bg-[#F0A500]/20 flex items-center justify-center">
+              <span className="text-[#F0A500] text-xs font-semibold">
+                {user?.firstName?.[0] ?? 'U'}
+              </span>
+            </div>
+          )}
         </button>
       </div>
     </header>

@@ -5,11 +5,15 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/joho/godotenv"
 	"github.com/kingsleydaprime/btp/services/job-scraper/internal/cron"
 	"github.com/kingsleydaprime/btp/services/job-scraper/internal/scraper"
 )
 
 func main() {
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found, using system env")
+	}
 	log.Println("BTP Job Scraper — starting")
 
 	s := scraper.New()
