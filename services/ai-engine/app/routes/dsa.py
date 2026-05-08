@@ -1,22 +1,11 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+
+from app.models.dsa import ReasonRequest, ReasonResponse
 from app.services.claude import coach_dsa
 from app.services.embeddings import embed
 from app.services.vector_store import save_attempt, similar_attempts
 
 router = APIRouter(prefix="/dsa", tags=["dsa"])
-
-
-class ReasonRequest(BaseModel):
-    user_id: str
-    problem_id: str
-    problem_description: str
-    user_reasoning: str
-
-
-class ReasonResponse(BaseModel):
-    coaching: str
-    patterns_found: int
 
 
 @router.post("/reason", response_model=ReasonResponse)

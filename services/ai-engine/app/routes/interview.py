@@ -1,35 +1,14 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
-from app.services.claude import interview_message, generate_feedback
+
+from app.models.interview import (
+    FeedbackRequest,
+    FeedbackResponse,
+    MessageRequest,
+    MessageResponse,
+)
+from app.services.claude import generate_feedback, interview_message
 
 router = APIRouter(prefix="/interview", tags=["interview"])
-
-
-class StartRequest(BaseModel):
-    user_id: str
-    stage: str
-
-
-class MessageRequest(BaseModel):
-    user_id: str
-    stage: str
-    history: list[dict]
-    message: str
-
-
-class FeedbackRequest(BaseModel):
-    stage: str
-    transcript: list[dict]
-
-
-class MessageResponse(BaseModel):
-    response: str
-    stage: str
-
-
-class FeedbackResponse(BaseModel):
-    feedback: str
-    stage: str
 
 
 @router.post("/message", response_model=MessageResponse)
