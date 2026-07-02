@@ -38,7 +38,14 @@ export class ClerkGuard implements CanActivate {
 
       await this.prisma.user.upsert({
         where: { id: payload.sub },
-        create: { id: payload.sub, email: `${payload.sub}@clerk.local`, name: 'User', username: payload.sub },
+        create: {
+          id: payload.sub,
+          // Clerk JWTs don't carry the email — real email arrives via Clerk webhook (future work).
+          // Placeholder keeps the unique constraint satisfied and is recognizable in logs.
+          email: `${payload.sub}@clerk.local`,
+          name: 'User',
+          username: payload.sub,
+        },
         update: { lastSeen: new Date() },
       });
 

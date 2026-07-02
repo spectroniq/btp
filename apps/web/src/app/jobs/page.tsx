@@ -26,7 +26,6 @@ const FILTERS = [
 
 export default function JobsPage() {
   const [activeFilter, setActiveFilter] = useState('All');
-  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const queryClient = useQueryClient();
 
   const { data, isLoading, isError } = useQuery({
@@ -34,22 +33,21 @@ export default function JobsPage() {
     queryFn: () => jobsApi.getAll().then((r) => r.data),
   });
 
+  const { data: savedData } = useQuery({
+    queryKey: ['saved-jobs'],
+    queryFn: () => jobsApi.getSaved().then((r) => r.data as { jobId: string }[]),
+  });
+
+  const savedIds = new Set((savedData ?? []).map((s) => s.jobId));
+
   const saveMutation = useMutation({
     mutationFn: (jobId: string) => jobsApi.save(jobId),
-    onSuccess: (_, jobId) => {
-      setSavedIds((prev) => new Set([...prev, jobId]));
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['saved-jobs'] }),
   });
 
   const unsaveMutation = useMutation({
     mutationFn: (jobId: string) => jobsApi.unsave(jobId),
-    onSuccess: (_, jobId) => {
-      setSavedIds((prev) => {
-        const next = new Set(prev);
-        next.delete(jobId);
-        return next;
-      });
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['saved-jobs'] }),
   });
   const [scraping, setScraping] = useState(false);
 

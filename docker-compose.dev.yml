@@ -1,0 +1,187 @@
+# Development compose — bind mounts + hot reload for every service.
+# Usage:
+#   cp .env.example .env   # fill in your keys
+#   docker compose -f docker-compose.dev.yml up
+#
+# First boot is slow (pnpm install, Go tool download, Python venv).
+# Subsequent starts are fast because named volumes cache deps.
+
+name: btp-dev
+
+services:
+
+  # ── Infrastructure ─────────────────────────────────────────────────────────
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: btp-dev-postgres
+    environment:
+      POSTGRES_USER: btp
+      POSTGRES_PASSWORD: btp_secret
+      POSTGRES_DB: btp_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U btp -d btp_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: btp-dev-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── NestJS Gateway (port 3001) ──────────────────────────────────────────────
+  # Hot reload via NestJS watch mode (TypeScript recompiles on save).
+
+  gateway:
+    image: node:22-alpine
+    container_name: btp-dev-gateway
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+      - gateway_nm:/workspace/node_modules
+      - pnpm_store:/root/.local/share/pnpm
+    ports:
+      - "3001:3001"
+    environment:
+      DATABASE_URL: postgresql://btp:btp_secret@postgres:5432/btp_db?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      AI_ENGINE_URL: http://ai-engine:8000
+      JOB_SCRAPER_URL: http://job-scraper:8080
+      NOTIFICATIONS_URL: http://notifications:8082
+      PORT: "3001"
+      NODE_ENV: development
+      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY}
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+    command: >
+      sh -c "npm install -g pnpm@9 --quiet --no-update-notifier &&
+             pnpm install &&
+             node_modules/.bin/prisma generate --schema=apps/gateway/prisma/schema &&
+             cd apps/gateway && /workspace/node_modules/.bin/prisma migrate deploy && cd /workspace &&
+             node apps/gateway/prisma/seed.cjs &&
+             pnpm exec nx sync &&
+             pnpm exec nx serve gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Next.js Web (port 3000) ─────────────────────────────────────────────────
+  # Hot reload via Next.js fast refresh (changes reflect instantly in browser).
+
+  web:
+    image: node:22-alpine
+    container_name: btp-dev-web
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+      - web_nm:/workspace/node_modules
+      - web_next:/workspace/apps/web/.next
+      - pnpm_store:/root/.local/share/pnpm
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_GATEWAY_URL: http://localhost:3001
+      NEXT_PUBLIC_AI_ENGINE_URL: http://localhost:8000
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY}
+      NODE_ENV: development
+    # Runs next directly so we can pass --hostname 0.0.0.0 (Next.js 14+ defaults to localhost)
+    command: >
+      sh -c "npm install -g pnpm@9 --quiet --no-update-notifier &&
+             pnpm install &&
+             node_modules/.bin/next dev apps/web --hostname 0.0.0.0 --port 3000"
+    depends_on:
+      - gateway
+    restart: unless-stopped
+
+  # ── FastAPI AI Engine (port 8000) ───────────────────────────────────────────
+  # Hot reload via uvicorn --reload (reloads on any .py file change).
+
+  ai-engine:
+    image: python:3.12-slim
+    container_name: btp-dev-ai-engine
+    working_dir: /app
+    volumes:
+      - ./services/ai-engine:/app
+      - ai_engine_venv:/app/.venv
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://btp:btp_secret@postgres:5432/btp_db?sslmode=disable
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-meta-llama/llama-3.3-70b-instruct:free}
+      VOYAGE_API_KEY: ${VOYAGE_API_KEY}
+    command: >
+      sh -c "pip install uv --quiet &&
+             uv sync &&
+             uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Go Job Scraper (port 8080) ──────────────────────────────────────────────
+  # Hot reload via Air (rebuilds and restarts on .go file change).
+
+  job-scraper:
+    build:
+      context: services/job-scraper
+      dockerfile: Dockerfile.dev
+    container_name: btp-dev-job-scraper
+    working_dir: /app
+    volumes:
+      - ./services/job-scraper:/app
+      - go_mod_cache:/root/go/pkg/mod
+    ports:
+      - "8080:8080"
+    environment:
+      GATEWAY_URL: http://gateway:3001
+      SERPAPI_KEY: ${SERPAPI_KEY:-}
+    command: air
+    depends_on:
+      - gateway
+    restart: unless-stopped
+
+  # ── Go Notifications (port 8082) ────────────────────────────────────────────
+  # Hot reload via Air.
+
+  notifications:
+    build:
+      context: services/notifications
+      dockerfile: Dockerfile.dev
+    container_name: btp-dev-notifications
+    working_dir: /app
+    volumes:
+      - ./services/notifications:/app
+      - go_mod_cache:/root/go/pkg/mod
+    ports:
+      - "8082:8082"
+    environment:
+      PORT: "8082"
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-BTP <noreply@bigtech.prep>}
+    command: air
+    restart: unless-stopped
+
+volumes:
+  postgres_dev_data:
+  redis_data:
+  gateway_nm:
+  web_nm:
+  web_next:
+  pnpm_store:
+  ai_engine_venv:
+  go_mod_cache:

@@ -6,7 +6,6 @@ import QueryProvider from '@/components/layout/QueryProvider';
 import MainContent from '@/components/layout/MainLayoutContent';
 import {
   ClerkProvider,
-  Show,
   SignInButton,
   SignUpButton,
   UserButton,

@@ -2,13 +2,14 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { useAuth } from '@clerk/nextjs';
 import {
   Panel,
   Group as PanelGroup,
   Separator as PanelResizeHandle,
 } from 'react-resizable-panels';
 import dynamic from 'next/dynamic';
-import { dsaApi } from '@/lib/api';
+import { dsaApi, type DSAProblemDetail } from '@/lib/api';
 import {
   ChevronLeft,
   Send,
@@ -20,7 +21,6 @@ import {
   BotMessageSquare,
   X,
 } from 'lucide-react';
-import problemsData from '../../../../../data/problems.json';
 
 const MonacoEditor = dynamic(() => import('@monaco-editor/react'), {
   ssr: false,
@@ -30,32 +30,6 @@ const MonacoEditor = dynamic(() => import('@monaco-editor/react'), {
     </div>
   ),
 });
-
-type ProblemData = {
-  title: string;
-  slug: string;
-  difficulty: 'EASY' | 'MEDIUM' | 'HARD';
-  topic: string;
-  description: string;
-  examples: string[];
-  constraints: string[];
-  starterCode: string;
-  testCases: { input: unknown; expected: unknown }[];
-};
-
-const ALL_PROBLEMS = problemsData as ProblemData[];
-
-const PROBLEMS_BY_SLUG = Object.fromEntries(
-  ALL_PROBLEMS.map((p) => [p.slug, p])
-);
-
-const DUMMY_LEGACY: Record<string, ProblemData | undefined> = {
-};
-
-// Lookup: try slug map first, fall back to legacy hardcoded map
-function findProblem(id: string): ProblemData | undefined {
-  return PROBLEMS_BY_SLUG[id] ?? DUMMY_LEGACY[id];
-}
 
 const DIFFICULTY_COLORS: Record<string, string> = {
   EASY: '#10B981',
@@ -79,9 +53,11 @@ type TestResult = {
 export default function ProblemPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const problem = findProblem(id);
+  const { userId } = useAuth();
 
-  const [code, setCode] = useState(problem?.starterCode ?? '');
+  const [problem, setProblem] = useState<DSAProblemDetail | null>(null);
+  const [fetchError, setFetchError] = useState(false);
+  const [code, setCode] = useState('');
   const [reasoning, setReasoning] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
@@ -89,13 +65,23 @@ export default function ProblemPage() {
   const [activeTab, setActiveTab] = useState<'results' | 'output'>('results');
   const [testResults, setTestResults] = useState<TestResult[]>([]);
   const [running, setRunning] = useState(false);
+  const [execError, setExecError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    dsaApi.getProblem(id)
+      .then((res) => {
+        setProblem(res.data);
+        setCode(res.data.starterCode ?? '');
+      })
+      .catch(() => setFetchError(true));
+  }, [id]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  if (!problem) {
+  if (fetchError) {
     return (
       <div className="flex items-center justify-center h-full">
         <p className="text-white/40">Problem not found.</p>
@@ -103,33 +89,65 @@ export default function ProblemPage() {
     );
   }
 
+  if (!problem) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 size={18} className="text-white/20 animate-spin" />
+      </div>
+    );
+  }
+
+  const runCode = async (): Promise<TestResult[]> => {
+    const { data } = await dsaApi.execute({
+      code,
+      testCases: problem.testCases,
+    });
+    if (data.error) {
+      setExecError(data.error);
+      return [];
+    }
+    setExecError(null);
+    return data.results.map((r, i) => ({
+      input: JSON.stringify(problem.testCases[i]?.input),
+      expected: r.expected,
+      status: r.pass ? 'pass' : 'fail',
+    }));
+  };
+
   const handleRun = async () => {
     setRunning(true);
     setActiveTab('results');
-    // Mock test runner — Judge0 integration later
-    await new Promise((r) => setTimeout(r, 1200));
-    setTestResults(
-      problem.testCases.map((tc) => ({
-        input: JSON.stringify(tc.input),
-        expected: JSON.stringify(tc.expected),
-        status: Math.random() > 0.4 ? 'pass' : 'fail',
-      }))
-    );
-    setRunning(false);
+    try {
+      const results = await runCode();
+      setTestResults(results);
+    } catch {
+      setExecError('Execution service unreachable.');
+    } finally {
+      setRunning(false);
+    }
   };
 
   const handleSubmit = async () => {
     setRunning(true);
     setActiveTab('results');
-    await new Promise((r) => setTimeout(r, 1800));
-    setTestResults(
-      problem.testCases.map((tc) => ({
-        input: JSON.stringify(tc.input),
-        expected: JSON.stringify(tc.expected),
-        status: 'pass' as const,
-      }))
-    );
-    setRunning(false);
+    try {
+      const results = await runCode();
+      setTestResults(results);
+      const allPass = results.length > 0 && results.every((r) => r.status === 'pass');
+      if (allPass && userId) {
+        await dsaApi.solve({
+          slug: problem.slug,
+          title: problem.title,
+          difficulty: problem.difficulty,
+          topic: problem.topic,
+          code,
+        });
+      }
+    } catch {
+      setExecError('Execution service unreachable.');
+    } finally {
+      setRunning(false);
+    }
   };
 
   const handleCoachSubmit = async () => {
@@ -140,8 +158,8 @@ export default function ProblemPage() {
     setLoading(true);
     try {
       const { data } = await dsaApi.reason({
-        user_id: 'test-user',
-        problem_id: id,
+        user_id: userId ?? 'anonymous',
+        problem_id: problem.id,
         problem_description: problem.description,
         user_reasoning: userMessage,
       });
@@ -431,7 +449,12 @@ export default function ProblemPage() {
                             Running test cases...
                           </div>
                         )}
-                        {!running && testResults.length === 0 && (
+                        {!running && execError && (
+                          <div className="bg-[#EF4444]/5 border border-[#EF4444]/15 rounded-lg p-3">
+                            <p className="text-[#EF4444] text-xs font-mono whitespace-pre-wrap">{execError}</p>
+                          </div>
+                        )}
+                        {!running && !execError && testResults.length === 0 && (
                           <p className="text-white/20 text-xs">
                             Run your code to see results.
                           </p>
@@ -479,7 +502,7 @@ export default function ProblemPage() {
                     )}
                     {activeTab === 'output' && (
                       <p className="text-white/20 text-xs font-mono">
-                        Output will appear here. Judge0 integration coming soon.
+                        Raw stdout appears here after running.
                       </p>
                     )}
                   </div>

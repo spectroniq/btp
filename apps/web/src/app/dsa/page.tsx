@@ -1,4 +1,8 @@
+'use client';
+
 import Link from 'next/link';
+import { useQuery } from '@tanstack/react-query';
+import { dsaApi } from '@/lib/api';
 import {
   Code2,
   ChevronRight,
@@ -13,7 +17,7 @@ const SUGGESTED = [
     id: 'two-sum',
     title: 'Two Sum',
     difficulty: 'Easy',
-    topic: 'Arrays / HashMap',
+    topic: 'Arrays & Hashing',
   },
   {
     id: 'valid-parentheses',
@@ -22,7 +26,7 @@ const SUGGESTED = [
     topic: 'Stack',
   },
   {
-    id: 'longest-substring',
+    id: 'longest-substring-without-repeating-characters',
     title: 'Longest Substring Without Repeating Characters',
     difficulty: 'Medium',
     topic: 'Sliding Window',
@@ -30,12 +34,12 @@ const SUGGESTED = [
 ];
 
 const TOPICS = [
-  { name: 'Arrays / HashMap', count: 15, solved: 0, color: '#1B6CF2' },
-  { name: 'Sliding Window', count: 8, solved: 0, color: '#F0A500' },
-  { name: 'Trees / BFS', count: 12, solved: 0, color: '#10B981' },
-  { name: 'Dynamic Programming', count: 14, solved: 0, color: '#EF4444' },
-  { name: 'Graphs / DFS', count: 10, solved: 0, color: '#8B5CF6' },
-  { name: 'Two Pointers', count: 9, solved: 0, color: '#EC4899' },
+  { name: 'Arrays & Hashing', count: 15, color: '#1B6CF2' },
+  { name: 'Sliding Window', count: 8, color: '#F0A500' },
+  { name: 'Trees & BFS', count: 12, color: '#10B981' },
+  { name: 'Dynamic Programming', count: 14, color: '#EF4444' },
+  { name: 'Graphs & DFS', count: 10, color: '#8B5CF6' },
+  { name: 'Two Pointers', count: 9, color: '#EC4899' },
 ];
 
 const DIFFICULTY_COLORS: Record<string, string> = {
@@ -44,14 +48,19 @@ const DIFFICULTY_COLORS: Record<string, string> = {
   Hard: '#EF4444',
 };
 
-const stats = [
-  { label: 'Solved', value: '0', icon: Trophy, color: '#F0A500' },
-  { label: 'Day Streak', value: '0', icon: Flame, color: '#EF4444' },
-  { label: 'Attempts', value: '0', icon: Target, color: '#1B6CF2' },
-  { label: 'Patterns Learned', value: '0', icon: TrendingUp, color: '#10B981' },
+const STAT_DEFS = [
+  { key: 'solved' as const, label: 'Solved', icon: Trophy, color: '#F0A500' },
+  { key: 'streak' as const, label: 'Day Streak', icon: Flame, color: '#EF4444' },
+  { key: 'attempts' as const, label: 'Attempts', icon: Target, color: '#1B6CF2' },
+  { key: 'patternsLearned' as const, label: 'Patterns Learned', icon: TrendingUp, color: '#10B981' },
 ];
 
 export default function DSADashboard() {
+  const { data: stats } = useQuery({
+    queryKey: ['dsa-stats'],
+    queryFn: () => dsaApi.getStats().then((r) => r.data),
+  });
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -73,7 +82,7 @@ export default function DSADashboard() {
 
       {/* Stats */}
       <div className="grid grid-cols-4 gap-4">
-        {stats.map(({ label, value, icon: Icon, color }) => (
+        {STAT_DEFS.map(({ key, label, icon: Icon, color }) => (
           <div
             key={label}
             className="bg-[#141418] border border-white/5 rounded-xl p-5 space-y-3"
@@ -85,7 +94,9 @@ export default function DSADashboard() {
               <Icon size={18} style={{ color }} />
             </div>
             <div>
-              <p className="text-2xl font-semibold text-white">{value}</p>
+              <p className="text-2xl font-semibold text-white">
+                {stats != null ? stats[key] : '—'}
+              </p>
               <p className="text-white/40 text-xs mt-0.5">{label}</p>
             </div>
           </div>
@@ -108,17 +119,12 @@ export default function DSADashboard() {
                 <span className="text-white/70 text-sm group-hover:text-white transition-colors">
                   {t.name}
                 </span>
-                <span className="text-white/20 text-xs">
-                  {t.solved}/{t.count}
-                </span>
+                <span className="text-white/20 text-xs">0/{t.count}</span>
               </div>
               <div className="h-1 bg-white/5 rounded-full overflow-hidden">
                 <div
-                  className="h-full rounded-full transition-all"
-                  style={{
-                    width: `${(t.solved / t.count) * 100}%`,
-                    backgroundColor: t.color,
-                  }}
+                  className="h-full rounded-full"
+                  style={{ width: '0%', backgroundColor: t.color }}
                 />
               </div>
             </Link>

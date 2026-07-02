@@ -1,23 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
-import { Code2, Search, ChevronRight } from 'lucide-react';
-import problemsData from '../../../../data/problems.json';
-
-type Problem = {
-  title: string;
-  slug: string;
-  difficulty: string;
-  topic: string;
-  description: string;
-  examples: string[];
-  constraints: string[];
-  starterCode: string;
-  testCases: { input: unknown; expected: unknown }[];
-};
-
-const PROBLEMS = problemsData as Problem[];
+import { Code2, Search, ChevronRight, Loader2 } from 'lucide-react';
+import { dsaApi, type DSAProblemSummary } from '@/lib/api';
 
 const DIFFICULTIES = ['All', 'EASY', 'MEDIUM', 'HARD'];
 
@@ -34,17 +20,25 @@ const DIFFICULTY_COLORS: Record<string, string> = {
 };
 
 export default function DSAPage() {
+  const [problems, setProblems] = useState<DSAProblemSummary[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [difficulty, setDifficulty] = useState('All');
   const [topic, setTopic] = useState('All');
 
-  // Derive unique topics dynamically from the data
-  const topics = useMemo(() => {
-    const unique = Array.from(new Set(PROBLEMS.map((p) => p.topic))).sort();
-    return ['All', ...unique];
+  useEffect(() => {
+    dsaApi.getProblems()
+      .then((res) => setProblems(res.data))
+      .catch(console.error)
+      .finally(() => setLoading(false));
   }, []);
 
-  const filtered = PROBLEMS.filter((p) => {
+  const topics = useMemo(() => {
+    const unique = Array.from(new Set(problems.map((p) => p.topic))).sort();
+    return ['All', ...unique];
+  }, [problems]);
+
+  const filtered = problems.filter((p) => {
     const matchSearch = p.title.toLowerCase().includes(search.toLowerCase());
     const matchDiff = difficulty === 'All' || p.difficulty === difficulty;
     const matchTopic = topic === 'All' || p.topic === topic;
@@ -52,9 +46,9 @@ export default function DSAPage() {
   });
 
   const counts = {
-    EASY: PROBLEMS.filter((p) => p.difficulty === 'EASY').length,
-    MEDIUM: PROBLEMS.filter((p) => p.difficulty === 'MEDIUM').length,
-    HARD: PROBLEMS.filter((p) => p.difficulty === 'HARD').length,
+    EASY: problems.filter((p) => p.difficulty === 'EASY').length,
+    MEDIUM: problems.filter((p) => p.difficulty === 'MEDIUM').length,
+    HARD: problems.filter((p) => p.difficulty === 'HARD').length,
   };
 
   return (
@@ -64,16 +58,13 @@ export default function DSAPage() {
         <div>
           <h1 className="text-2xl font-semibold text-white">DSA Lab</h1>
           <p className="text-white/40 text-sm mt-1">
-            {PROBLEMS.length} problems · AI-powered reasoning coach
+            {loading ? 'Loading...' : `${problems.length} problems · AI-powered reasoning coach`}
           </p>
         </div>
         <div className="flex gap-3">
           {Object.entries(counts).map(([diff, count]) => (
             <div key={diff} className="text-center">
-              <p
-                className="text-lg font-semibold"
-                style={{ color: DIFFICULTY_COLORS[diff] }}
-              >
+              <p className="text-lg font-semibold" style={{ color: DIFFICULTY_COLORS[diff] }}>
                 {count}
               </p>
               <p className="text-white/30 text-xs">{DIFFICULTY_LABELS[diff]}</p>
@@ -136,44 +127,41 @@ export default function DSAPage() {
           <span className="text-white/20 text-xs">Topic</span>
           <span />
         </div>
-        {filtered.map((p, i) => (
+
+        {loading && (
+          <div className="py-16 flex items-center justify-center gap-2 text-white/20">
+            <Loader2 size={14} className="animate-spin" />
+            <span className="text-sm">Loading problems...</span>
+          </div>
+        )}
+
+        {!loading && filtered.map((p, i) => (
           <Link
-            key={p.slug}
+            key={p.id}
             href={`/dsa/problems/${p.slug}`}
             className="grid grid-cols-[2rem_1fr_6rem_8rem_2rem] gap-4 px-5 py-4 border-b border-white/5 last:border-0 hover:bg-white/2 transition-colors group items-center"
           >
             <span className="text-white/20 text-xs">{i + 1}</span>
             <div className="flex items-center gap-2">
-              <Code2
-                size={13}
-                className="text-white/20 group-hover:text-[#1B6CF2] transition-colors shrink-0"
-              />
+              <Code2 size={13} className="text-white/20 group-hover:text-[#1B6CF2] transition-colors shrink-0" />
               <span className="text-white/70 text-sm group-hover:text-white transition-colors">
                 {p.title}
               </span>
             </div>
-            <span
-              className="text-xs font-medium"
-              style={{ color: DIFFICULTY_COLORS[p.difficulty] }}
-            >
+            <span className="text-xs font-medium" style={{ color: DIFFICULTY_COLORS[p.difficulty] }}>
               {DIFFICULTY_LABELS[p.difficulty]}
             </span>
             <span className="text-white/30 text-xs">{p.topic}</span>
-            <ChevronRight
-              size={14}
-              className="text-white/10 group-hover:text-white/40 transition-colors"
-            />
+            <ChevronRight size={14} className="text-white/10 group-hover:text-white/40 transition-colors" />
           </Link>
         ))}
-        {filtered.length === 0 && (
+
+        {!loading && filtered.length === 0 && (
           <div className="py-12 text-center">
-            <p className="text-white/30 text-sm">
-              No problems match your filters.
-            </p>
+            <p className="text-white/30 text-sm">No problems match your filters.</p>
           </div>
         )}
       </div>
     </div>
   );
 }
-

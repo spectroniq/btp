@@ -8,11 +8,21 @@ _pool: asyncpg.Pool | None = None
 
 async def init_pool():
     global _pool
-    _pool = await asyncpg.create_pool(
-        os.getenv("DATABASE_URL"),
-        min_size=2,
-        max_size=10,
-    )
+    import asyncio
+    last_error: Exception | None = None
+    for attempt in range(10):
+        try:
+            _pool = await asyncpg.create_pool(
+                os.getenv("DATABASE_URL"),
+                min_size=2,
+                max_size=10,
+            )
+            return
+        except Exception as exc:
+            last_error = exc
+            delay = min(2 ** attempt, 30)
+            await asyncio.sleep(delay)
+    raise last_error  # type: ignore[misc]
 
 
 async def close_pool():
@@ -31,12 +41,23 @@ async def save_attempt(
     problem_id: str,
     reasoning: str,
     embedding: list[float],
+    problem_description: str = "",
 ):
     vector_str = "[" + ",".join(str(x) for x in embedding) + "]"
     async with get_pool().acquire() as conn:
+        # Ensure the user row exists — the gateway's ClerkGuard normally does this,
+        # but the AI engine is called directly from the browser.
         await conn.execute(
             """
-            INSERT INTO "DSAAttempt" (id, "userId", "problemId", reasoning, embedding, "createdAt")
+            INSERT INTO users (id, email, name, username, "createdAt", "updatedAt")
+            VALUES ($1, $1 || '@clerk.local', 'User', $1, now(), now())
+            ON CONFLICT (id) DO NOTHING
+            """,
+            user_id,
+        )
+        await conn.execute(
+            """
+            INSERT INTO dsa_attempts (id, "userId", "problemId", reasoning, embedding, "createdAt")
             VALUES (gen_random_uuid(), $1, $2, $3, $4::vector, now())
             """,
             user_id,
@@ -56,7 +77,7 @@ async def similar_attempts(
         rows = await conn.fetch(
             """
             SELECT reasoning, 1 - (embedding::vector <=> $1::vector) AS similarity
-            FROM "DSAAttempt"
+            FROM dsa_attempts
             WHERE "userId" = $2
               AND embedding IS NOT NULL
             ORDER BY embedding::vector <=> $1::vector
@@ -75,7 +96,7 @@ async def save_job_embedding(job_id: str, description: str):
     async with get_pool().acquire() as conn:
         await conn.execute(
             """
-            UPDATE "Job"
+            UPDATE jobs
             SET embedding = $1::vector
             WHERE id = $2
             """,
@@ -91,7 +112,7 @@ async def match_jobs(user_embedding: list[float], limit: int = 20) -> list[dict]
             """
             SELECT id, title, company, location, url, tags,
                    1 - (embedding::vector <=> $1::vector) AS similarity
-            FROM "Job"
+            FROM jobs
             WHERE embedding IS NOT NULL
             ORDER BY embedding::vector <=> $1::vector
             LIMIT $2

@@ -1,0 +1,79 @@
+[
+  {
+    "id": "rate-limiter",
+    "title": "Add Rate Limiting to the API",
+    "type": ["codebase", "whiteboard"],
+    "difficulty": "MEDIUM",
+    "time_limit_minutes": 40,
+    "tags": ["backend", "middleware", "distributed systems"],
+    "context": "You're a backend engineer at a fintech startup. Your public REST API has been getting hammered — a single bad client is making 10,000 requests per minute and taking down the service for everyone else. Your team lead has asked you to implement rate limiting before the end of the day.",
+    "problem": "Implement a rate limiting middleware for the Express.js API below. Requirements:\n\n1. Limit each IP address to 100 requests per minute\n2. Return HTTP 429 with a `Retry-After` header when the limit is exceeded\n3. The solution must work correctly across multiple server instances (we run 3 instances behind a load balancer)\n4. Don't add more than ~50 lines of code\n\nThink about: where state lives, what happens when an instance restarts, how you'd test this.",
+    "code_context": {
+      "language": "typescript",
+      "filename": "src/middleware/index.ts",
+      "content": "import express from 'express';\nimport { createClient } from 'redis';\n\nconst app = express();\nconst redis = createClient({ url: process.env.REDIS_URL });\n\n// TODO: Add rate limiting middleware here\n\napp.use(express.json());\n\napp.get('/api/transactions', async (req, res) => {\n  // ... fetch transactions\n  res.json({ transactions: [] });\n});\n\napp.post('/api/transfer', async (req, res) => {\n  // ... process transfer\n  res.json({ success: true });\n});\n\nexport { app };"
+    },
+    "evaluation_focus": ["decomposition", "ai_usage_quality", "validation", "communication", "speed"],
+    "what_good_looks_like": "Candidate quickly identifies that single-instance state (like a Map) won't work across 3 servers. Uses Redis for shared state. Implements sliding window or token bucket. Handles edge cases (Redis down, clock skew). Asks AI focused questions, not 'write this for me'."
+  },
+  {
+    "id": "notification-system",
+    "title": "Design a Notification System",
+    "type": ["whiteboard"],
+    "difficulty": "HARD",
+    "time_limit_minutes": 45,
+    "tags": ["system design", "distributed systems", "scale"],
+    "context": "You're joining the infrastructure team at a social platform with 50 million active users. You've been tasked with designing the notification system from scratch. The current system sends notifications synchronously in the request path and it's causing timeouts.",
+    "problem": "Design a notification delivery system that:\n\n1. Supports push (mobile), email, and in-app notifications\n2. Handles 50M users, with peak load of 1M notifications/minute during major events\n3. Guarantees at-least-once delivery\n4. Allows users to set delivery preferences (e.g. 'email only for follows, push for DMs')\n5. Has a notification history users can view\n\nDeliver: a high-level architecture diagram (described in text or ASCII), the main data models, and the API surface. Explain every major tradeoff you make.",
+    "code_context": null,
+    "evaluation_focus": ["decomposition", "ai_usage_quality", "validation", "communication"],
+    "what_good_looks_like": "Candidate breaks problem into sub-problems (ingestion, routing, delivery, preferences, history) before touching AI. Uses AI to explore tradeoffs they're uncertain about. Validates AI suggestions critically (e.g. questions whether Kafka is overkill). Produces a clear, defensible design."
+  },
+  {
+    "id": "n-plus-one",
+    "title": "Debug the Slow Dashboard Query",
+    "type": ["codebase"],
+    "difficulty": "EASY",
+    "time_limit_minutes": 25,
+    "tags": ["debugging", "databases", "performance"],
+    "context": "You're oncall. At 2am you get paged — the user dashboard is timing out for accounts with more than 1,000 followers. P99 latency went from 80ms to 45 seconds. You pull up the code.",
+    "problem": "Find the performance issue in the code below and fix it. The `getUserDashboard` function is the one being called on every dashboard load.\n\nRequirements:\n1. Identify the root cause\n2. Fix it without changing the function signature or return shape\n3. Explain what you changed and why in a comment\n4. Consider: what would you add to prevent this class of bug in future?",
+    "code_context": {
+      "language": "typescript",
+      "filename": "src/services/dashboard.ts",
+      "content": "import { db } from '../db';\n\nexport async function getUserDashboard(userId: string) {\n  const user = await db.user.findUnique({\n    where: { id: userId },\n  });\n\n  const followers = await db.follow.findMany({\n    where: { followingId: userId },\n  });\n\n  // Get profile info for each follower to show in the dashboard\n  const followerProfiles = [];\n  for (const follow of followers) {\n    const profile = await db.user.findUnique({\n      where: { id: follow.followerId },\n      select: { id: true, name: true, avatar: true, bio: true },\n    });\n    followerProfiles.push(profile);\n  }\n\n  const recentPosts = await db.post.findMany({\n    where: { authorId: userId },\n    orderBy: { createdAt: 'desc' },\n    take: 10,\n  });\n\n  return {\n    user,\n    followers: followerProfiles,\n    recentPosts,\n  };\n}"
+    },
+    "evaluation_focus": ["decomposition", "ai_usage_quality", "validation", "speed"],
+    "what_good_looks_like": "Candidate spots the N+1 query immediately (or quickly with AI help). Fix uses `include` or a single JOIN query. They mention adding a query analyzer or ORM lint rule to prevent recurrence. Quick, confident, explains clearly."
+  },
+  {
+    "id": "background-jobs",
+    "title": "Design a Background Job System",
+    "type": ["codebase", "whiteboard"],
+    "difficulty": "MEDIUM",
+    "time_limit_minutes": 40,
+    "tags": ["backend", "architecture", "queues"],
+    "context": "Your team's image processing pipeline runs synchronously in the API request — users upload a photo, the server resizes it to 5 sizes, generates thumbnails, and runs moderation — all before responding. It's slow (8-12 seconds per upload) and if the process dies mid-way, the job is lost. You need to move this to a background job system.",
+    "problem": "Design and partially implement a background job system for the image processing pipeline:\n\n1. Jobs must be persistent — no lost work if a worker crashes\n2. Jobs must be retriable with exponential backoff (max 3 retries)\n3. Different job types have different priorities (moderation is high priority, thumbnail generation is low)\n4. You need visibility into job status (queued, running, failed, done)\n5. The system should scale to 10,000 uploads/hour\n\nDeliver: the data model for jobs, the worker loop pseudocode, and at least one concrete implementation choice (queue tech, storage, etc.) with justification. You don't need to write production code — clear pseudocode or TypeScript stubs are fine.",
+    "code_context": {
+      "language": "typescript",
+      "filename": "src/api/upload.ts",
+      "content": "import { resizeImage } from '../processors/resize';\nimport { generateThumbnails } from '../processors/thumbnails';\nimport { runModeration } from '../processors/moderation';\nimport { saveToS3 } from '../storage/s3';\n\nexport async function handleUpload(file: Buffer, userId: string) {\n  // TODO: This all needs to move to background jobs\n  const resized = await resizeImage(file, [1080, 720, 480, 240, 120]);\n  const thumbnails = await generateThumbnails(resized);\n  await runModeration(file); // Can take 2-3 seconds, external API call\n  const urls = await saveToS3(resized, thumbnails, userId);\n  \n  return { urls };\n}"
+    },
+    "evaluation_focus": ["decomposition", "ai_usage_quality", "validation", "communication"],
+    "what_good_looks_like": "Candidate identifies the key concerns (persistence, retries, priority, observability) before designing. Uses AI to compare BullMQ vs SQS vs custom — but makes the decision themselves. Thinks about the worker process lifecycle. Considers failure modes (worker crash mid-job, external API flaking)."
+  },
+  {
+    "id": "feature-flags",
+    "title": "Build a Feature Flag System",
+    "type": ["whiteboard"],
+    "difficulty": "MEDIUM",
+    "time_limit_minutes": 35,
+    "tags": ["system design", "infrastructure", "product engineering"],
+    "context": "Your team ships features behind feature flags — but right now 'feature flags' is just a hardcoded JSON file that requires a deploy to update. You're getting 20 deploys a day just to toggle flags. Engineering wants a proper feature flag system they can update in real-time from a dashboard.",
+    "problem": "Design a feature flag system that:\n\n1. Supports boolean flags (on/off) and percentage rollouts (e.g. 10% of users)\n2. Flags can be scoped to users, orgs, or environments (dev/staging/prod)\n3. Flag evaluation must be fast — it runs on every API request\n4. Changes to flags must propagate to all servers within 30 seconds\n5. There must be a simple API for engineers to check flags: `isEnabled('new-checkout', userId)`\n\nDeliver: data model for flags, the architecture for fast evaluation and propagation, and the client SDK interface. Explain your caching strategy.",
+    "code_context": null,
+    "evaluation_focus": ["decomposition", "ai_usage_quality", "validation", "communication"],
+    "what_good_looks_like": "Candidate correctly identifies that flag evaluation latency is critical and must not hit a database on every request. Uses local cache with push invalidation (webhooks/SSE/polling). Data model handles user/org/env targeting. Thinks about what happens when the flag service is down (fail open vs fail closed)."
+  }
+]

@@ -37,6 +37,12 @@ func New() *Scraper {
 }
 
 func (s *Scraper) Run(query string) error {
+	if s.apiKey == "" {
+		return fmt.Errorf("SERPAPI_KEY not set — skipping scrape for %q", query)
+	}
+	if s.gatewayURL == "" {
+		return fmt.Errorf("GATEWAY_URL not set — skipping scrape for %q", query)
+	}
 	log.Printf("Scraping jobs for: %s", query)
 
 	jobs, err := s.fetchJobs(query)

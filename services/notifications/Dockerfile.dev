@@ -1,0 +1,3 @@
+FROM golang:1.25-alpine
+RUN GOBIN=/usr/local/bin go install github.com/air-verse/air@latest
+WORKDIR /app

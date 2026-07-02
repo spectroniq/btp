@@ -1,26 +1,50 @@
-import { Briefcase, Code2, Mic, Flame } from 'lucide-react';
+'use client';
 
-const stats = [
-  { label: 'Jobs Found', value: '0', icon: Briefcase, color: '#1B6CF2' },
-  { label: 'Problems Solved', value: '0', icon: Code2, color: '#F0A500' },
-  { label: 'Interviews Done', value: '0', icon: Mic, color: '#10B981' },
-  { label: 'Day Streak', value: '0', icon: Flame, color: '#EF4444' },
-];
+import { useUser } from '@clerk/nextjs';
+import { useQuery } from '@tanstack/react-query';
+import { dsaApi, jobsApi } from '@/lib/api';
+import { Briefcase, Code2, Mic, Flame } from 'lucide-react';
+import Link from 'next/link';
+
+function greeting() {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  return 'Good evening';
+}
 
 export default function DashboardPage() {
+  const { user } = useUser();
+  const firstName = user?.firstName ?? user?.username ?? 'there';
+
+  const { data: dsaStats } = useQuery({
+    queryKey: ['dsa-stats'],
+    queryFn: () => dsaApi.getStats().then((r) => r.data),
+  });
+
+  const { data: jobs } = useQuery({
+    queryKey: ['jobs'],
+    queryFn: () => jobsApi.getAll().then((r) => r.data as unknown[]),
+  });
+
+  const stats = [
+    { label: 'Jobs Found', value: jobs != null ? String(jobs.length) : '—', icon: Briefcase, color: '#1B6CF2' },
+    { label: 'Problems Solved', value: dsaStats != null ? String(dsaStats.solved) : '—', icon: Code2, color: '#F0A500' },
+    { label: 'Interviews Done', value: '—', icon: Mic, color: '#10B981' },
+    { label: 'Day Streak', value: dsaStats != null ? String(dsaStats.streak) : '—', icon: Flame, color: '#EF4444' },
+  ];
+
   return (
     <div className="space-y-8">
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-semibold text-white">
-          Good morning, Kingsley
+          {greeting()}, {firstName}
         </h1>
         <p className="text-white/40 text-sm mt-1">
           Let's get you closer to that offer.
         </p>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-4 gap-4">
         {stats.map(({ label, value, icon: Icon, color }) => (
           <div
@@ -41,7 +65,6 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Quick actions */}
       <div>
         <h2 className="text-white/60 text-xs font-medium uppercase tracking-wider mb-3">
           Quick Actions
@@ -49,14 +72,10 @@ export default function DashboardPage() {
         <div className="grid grid-cols-3 gap-4">
           {[
             { label: 'Practice a DSA problem', href: '/dsa', color: '#F0A500' },
-            {
-              label: 'Start a mock interview',
-              href: '/interview',
-              color: '#1B6CF2',
-            },
+            { label: 'Start a mock interview', href: '/interview', color: '#1B6CF2' },
             { label: 'Browse new jobs', href: '/jobs', color: '#10B981' },
           ].map(({ label, href, color }) => (
-            <a
+            <Link
               key={href}
               href={href}
               className="bg-[#141418] border border-white/5 rounded-xl p-5 hover:border-white/10 transition-all group"
@@ -68,7 +87,7 @@ export default function DashboardPage() {
               <p className="text-white/70 text-sm group-hover:text-white transition-colors">
                 {label}
               </p>
-            </a>
+            </Link>
           ))}
         </div>
       </div>

@@ -7,6 +7,7 @@ out-tsc
 
 # dependencies
 node_modules
+.pnpm-store/
 
 # IDEs and editors
 /.idea
@@ -57,12 +58,29 @@ test-output
 .env.*
 !.env.example
 
-# bin
+# Go build artifacts
 services/job-scraper/main
 services/job-scraper/bin
+services/notifications/main
+services/notifications/bin
+services/notifications/server
+
+# Go dep files (generated)
 services/job-scraper/go.sum
+services/notifications/go.sum
 
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+services/ai-engine/.venv/
 
-__pycache__/*
-_pycache_
-__pycache__
+# Prisma generated client
+apps/gateway/src/generated/
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Docker volumes / data
+postgres_data/
