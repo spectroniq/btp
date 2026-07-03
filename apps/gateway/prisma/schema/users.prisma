@@ -14,11 +14,12 @@ model User {
   lastSeen  DateTime @default(now())
 
   // Relations
-  savedJobs       SavedJob[]
-  dsaAttempts     DSAAttempt[]
+  savedJobs         SavedJob[]
+  dsaAttempts       DSAAttempt[]
   interviewSessions InterviewSession[]
-  badges          UserBadge[]
-  jobPreferences  JobPreference?
+  badges            UserBadge[]
+  jobPreferences    JobPreference?
+  notifications     InAppNotification[]
 
   @@map("users")
 }

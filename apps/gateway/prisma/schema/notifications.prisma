@@ -1,0 +1,14 @@
+// ── IN-APP NOTIFICATIONS ──────────────────────────────
+model InAppNotification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String   // 'jobs' | 'streak' | 'interview'
+  title     String
+  body      String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("in_app_notifications")
+}

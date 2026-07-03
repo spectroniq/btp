@@ -1,13 +1,15 @@
 'use strict';
 const { Client } = require('pg');
 const problems = require('../../web/data/problems.json');
+const references = require('../../web/data/references.json');
 
 async function seed() {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
 
-  let seeded = 0;
-  let skipped = 0;
+  // ── DSA Problems ────────────────────────────────────
+  let dsaSeeded = 0;
+  let dsaSkipped = 0;
 
   for (const p of problems) {
     try {
@@ -28,15 +30,41 @@ async function seed() {
           JSON.stringify(p.testCases ?? []),
         ],
       );
-      if (result.rowCount > 0) seeded++;
-      else skipped++;
+      if (result.rowCount > 0) dsaSeeded++;
+      else dsaSkipped++;
     } catch (err) {
-      console.error(`  ✗ ${p.slug}: ${err.message}`);
+      console.error(`  ✗ dsa/${p.slug}: ${err.message}`);
     }
   }
 
+  console.log(`DSA seed complete: ${dsaSeeded} inserted, ${dsaSkipped} already existed.`);
+
+  // ── References ──────────────────────────────────────
+  let refSeeded = 0;
+  let refSkipped = 0;
+
+  for (const [category, items] of Object.entries(references)) {
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      try {
+        const result = await client.query(
+          `INSERT INTO "references"
+             (id, category, title, complexity, "when", summary, "order")
+           VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6)
+           ON CONFLICT DO NOTHING`,
+          [category, item.title, item.complexity, item.when, item.summary, i],
+        );
+        if (result.rowCount > 0) refSeeded++;
+        else refSkipped++;
+      } catch (err) {
+        console.error(`  ✗ ref/${category}/${item.title}: ${err.message}`);
+      }
+    }
+  }
+
+  console.log(`References seed complete: ${refSeeded} inserted, ${refSkipped} already existed.`);
+
   await client.end();
-  console.log(`DSA seed complete: ${seeded} inserted, ${skipped} already existed.`);
 }
 
 seed().catch(err => {

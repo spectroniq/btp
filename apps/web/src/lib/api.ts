@@ -75,6 +75,37 @@ export const setAuthToken = (token: string | null) => {
   }
 };
 
+export type AppNotification = {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  read: boolean;
+  createdAt: string;
+};
+
+export const notificationsApi = {
+  getAll: () => gateway.get<AppNotification[]>('/notifications'),
+  markRead: (id: string) => gateway.patch(`/notifications/${id}/read`),
+  markAllRead: () => gateway.patch('/notifications/read-all'),
+};
+
+export type Reference = {
+  id: string;
+  category: string;
+  title: string;
+  complexity: string;
+  when: string;
+  summary: string;
+  order: number;
+};
+
+export const referencesApi = {
+  getAll: () => gateway.get<Reference[]>('/references'),
+  getByCategory: (category: string) =>
+    gateway.get<Reference[]>(`/references?category=${encodeURIComponent(category)}`),
+};
+
 export const jobsApi = {
   getAll: () => gateway.get('/jobs'),
   save: (jobId: string) => gateway.post(`/jobs/${jobId}/save`),

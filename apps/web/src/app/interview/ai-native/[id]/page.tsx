@@ -6,15 +6,9 @@ import { useAuth } from '@clerk/nextjs';
 import dynamic from 'next/dynamic';
 import { interviewApi, streamAiEngine } from '@/lib/api';
 import scenariosData from '../../../../../data/interview-scenarios.json';
-import {
-  ChevronLeft,
-  Send,
-  Loader2,
-  Clock,
-  Cpu,
-  CheckCircle,
-  ChevronRight,
-} from 'lucide-react';
+import { MarkdownMessage } from '@/components/MarkdownMessage';
+import { ChevronLeft, Send, Loader2, Clock, Cpu, CheckCircle, ChevronRight, Mic, MicOff, Volume2, VolumeX } from 'lucide-react';
+import { useVoice } from '@/hooks/useVoice';
 
 const MonacoEditor = dynamic(() => import('@monaco-editor/react'), {
   ssr: false,
@@ -76,10 +70,13 @@ export default function AINativeSessionPage() {
   const [evalLoading, setEvalLoading] = useState(false);
   const { elapsed, display: timerDisplay } = useTimer(started && !evalResult);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [voiceMode, setVoiceMode] = useState(false);
+  const { isSupported, isListening, isSpeaking, interimTranscript, startListening, stopListening, speakChunk, cancelSpeech } = useVoice();
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [assistHistory]);
+
 
   if (!scenario) {
     return (
@@ -92,10 +89,11 @@ export default function AINativeSessionPage() {
   const hasCode = !!scenario.code_context;
   const isEvaluated = !!evalResult;
 
-  const sendAssist = async () => {
-    if (!assistInput.trim() || assistLoading) return;
-    const userMessage = assistInput.trim();
-    const newHistory = [...assistHistory, { role: 'user' as const, content: userMessage }];
+  const sendAssist = async (voiceText?: string) => {
+    const userMessage = (voiceText ?? assistInput).trim();
+    if (!userMessage || assistLoading) return;
+    const snap = [...assistHistory];
+    const newHistory = [...snap, { role: 'user' as const, content: userMessage }];
     setAssistHistory([...newHistory, { role: 'assistant', content: '' }]);
     setAssistInput('');
     setAssistLoading(true);
@@ -105,12 +103,14 @@ export default function AINativeSessionPage() {
       for await (const chunk of streamAiEngine('/interview/ai-native/assist/stream', {
         problem_title: scenario.title,
         problem_context: scenario.problem,
-        history: assistHistory.map((m) => ({ role: m.role, content: m.content })),
+        history: snap.map((m) => ({ role: m.role, content: m.content })),
         message: userMessage,
       })) {
         text += chunk;
         setAssistHistory([...newHistory, { role: 'assistant', content: text }]);
+        if (voiceText !== undefined) speakChunk(chunk);
       }
+      if (voiceText !== undefined) speakChunk('', true);
     } catch {
       setAssistHistory([...newHistory, { role: 'assistant', content: 'AI assistant unreachable.' }]);
     } finally {
@@ -281,23 +281,27 @@ export default function AINativeSessionPage() {
                   <p className="text-white/10 text-xs">Ask about approaches, syntax, concepts — anything.</p>
                 </div>
               )}
-              {assistHistory.map((m, i) => (
+              {assistHistory.filter((m) => m.role === 'user' || m.content !== '').map((m, i) => (
                 <div key={i} className={`flex gap-2 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   {m.role === 'assistant' && (
                     <div className="w-5 h-5 rounded bg-[#10B981]/20 flex items-center justify-center shrink-0 mt-0.5">
                       <Cpu size={10} className="text-[#10B981]" />
                     </div>
                   )}
-                  <div className={`max-w-[85%] px-3 py-2 rounded-lg text-xs leading-relaxed whitespace-pre-wrap ${
+                  <div className={`max-w-[85%] px-3 py-2 rounded-lg text-xs leading-relaxed ${
                     m.role === 'user'
                       ? 'bg-[#10B981]/15 text-white/80 rounded-tr-sm'
                       : 'bg-white/5 text-white/60 rounded-tl-sm'
                   }`}>
-                    {m.content}
+                    {m.role === 'assistant' ? (
+                      <MarkdownMessage content={m.content} className="text-xs text-white/60" />
+                    ) : (
+                      m.content
+                    )}
                   </div>
                 </div>
               ))}
-              {assistLoading && (
+              {assistLoading && assistHistory.at(-1)?.content === '' && (
                 <div className="flex gap-2">
                   <div className="w-5 h-5 rounded bg-[#10B981]/20 flex items-center justify-center shrink-0">
                     <Loader2 size={10} className="text-[#10B981] animate-spin" />
@@ -313,15 +317,56 @@ export default function AINativeSessionPage() {
             </div>
             <div className="p-3 border-t border-white/5 shrink-0">
               <div className="flex gap-2">
-                <textarea value={assistInput} onChange={(e) => setAssistInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAssist(); } }}
-                  placeholder="Ask the AI assistant..."
-                  className="flex-1 bg-white/5 border border-white/8 rounded-lg px-3 py-2 text-white/70 text-xs placeholder:text-white/20 resize-none focus:outline-none focus:border-[#10B981]/40 transition-colors"
-                  rows={2} />
-                <button onClick={sendAssist} disabled={!assistInput.trim() || assistLoading}
-                  className="w-8 h-8 rounded-lg bg-[#10B981] flex items-center justify-center self-end disabled:opacity-30 hover:bg-[#10B981]/80 transition-colors shrink-0">
-                  <Send size={13} className="text-white" />
-                </button>
+                {voiceMode ? (
+                  <div className="flex-1 flex flex-col items-center justify-center gap-1.5 py-1">
+                    {assistLoading ? (
+                      <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center">
+                        <Loader2 size={16} className="text-[#10B981] animate-spin" />
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => isListening ? stopListening() : startListening((t) => sendAssist(t))}
+                        className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
+                          isListening ? 'bg-red-500 shadow-[0_0_16px_rgba(239,68,68,0.5)] scale-110' : 'bg-[#10B981] hover:bg-[#10B981]/80'
+                        }`}
+                      >
+                        {isListening ? <MicOff size={18} className="text-white" /> : <Mic size={18} className="text-white" />}
+                      </button>
+                    )}
+                    {interimTranscript && (
+                      <p className="text-white/50 text-xs text-center italic">{interimTranscript}</p>
+                    )}
+                  </div>
+                ) : (
+                  <textarea value={assistInput} onChange={(e) => setAssistInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAssist(); } }}
+                    placeholder="Ask the AI assistant..."
+                    className="flex-1 bg-white/5 border border-white/8 rounded-lg px-3 py-2 text-white/70 text-xs placeholder:text-white/20 resize-none focus:outline-none focus:border-[#10B981]/40 transition-colors"
+                    rows={2} />
+                )}
+                {!voiceMode && (
+                  <button onClick={() => sendAssist()} disabled={!assistInput.trim() || assistLoading}
+                    className="w-8 h-8 rounded-lg bg-[#10B981] flex items-center justify-center self-end disabled:opacity-30 hover:bg-[#10B981]/80 transition-colors shrink-0">
+                    <Send size={13} className="text-white" />
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center justify-between mt-1.5">
+                <p className="text-white/20 text-xs">{voiceMode ? (assistLoading ? 'AI is speaking...' : isListening ? 'Listening...' : 'Tap mic to speak') : ''}</p>
+                <div className="flex items-center gap-2">
+                  {voiceMode && isSpeaking && (
+                    <button onClick={cancelSpeech} className="text-white/30 hover:text-white/60 transition-colors">
+                      <VolumeX size={12} />
+                    </button>
+                  )}
+                  {isSupported && (
+                    <button onClick={() => { setVoiceMode((v) => !v); cancelSpeech(); stopListening(); }}
+                      className={`flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-all ${voiceMode ? 'bg-[#10B981]/20 text-[#10B981]' : 'bg-white/5 text-white/30 hover:text-white/50'}`}>
+                      <Volume2 size={11} />
+                      Voice
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </div>

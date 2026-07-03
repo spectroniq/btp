@@ -82,7 +82,7 @@ for _tc in _test_cases:
         _results.append({"pass": _result == _expected, "actual": str(_result), "expected": str(_expected)})
     except Exception as _e:
         _results.append({"pass": False, "error": str(_e)})
-print(_json.dumps(_results))
+print("__BTP__:" + _json.dumps(_results))
 `;
 
     const pistonUrl = process.env['CODE_EXEC_URL'] ?? 'https://emkc.org/api/v2/piston/execute';
@@ -102,16 +102,27 @@ print(_json.dumps(_results))
       throw new InternalServerErrorException('Code execution service unreachable');
     }
 
-    const data = await res.json() as {
-      run: { stdout: string; stderr: string; code: number };
-    };
-
-    if (data.run.stderr) {
-      return { results: [], error: data.run.stderr };
+    if (!res.ok) {
+      throw new InternalServerErrorException(
+        `Code execution service returned ${res.status}`,
+      );
     }
 
+    const data = await res.json() as {
+      run?: { stdout: string; stderr: string; code: number };
+    };
+
+    if (!data.run) {
+      throw new InternalServerErrorException('Unexpected response from code execution service');
+    }
+
+    const match = data.run.stdout.match(/__BTP__:(.+)/);
+    if (!match) {
+      const errorMsg = data.run.stderr?.trim() || data.run.stdout.trim() || 'Execution produced no output';
+      return { results: [], error: errorMsg };
+    }
     try {
-      const results = JSON.parse(data.run.stdout.trim());
+      const results = JSON.parse(match[1]);
       return { results };
     } catch {
       return { results: [], error: 'Failed to parse execution output' };

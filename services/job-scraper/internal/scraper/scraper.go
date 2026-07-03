@@ -36,7 +36,7 @@ func New() *Scraper {
 	}
 }
 
-func (s *Scraper) Run(query string) error {
+func (s *Scraper) Run(query string, tags []string) error {
 	if s.apiKey == "" {
 		return fmt.Errorf("SERPAPI_KEY not set — skipping scrape for %q", query)
 	}
@@ -45,7 +45,7 @@ func (s *Scraper) Run(query string) error {
 	}
 	log.Printf("Scraping jobs for: %s", query)
 
-	jobs, err := s.fetchJobs(query)
+	jobs, err := s.fetchJobs(query, tags)
 	if err != nil {
 		return fmt.Errorf("fetch failed: %w", err)
 	}
@@ -59,7 +59,7 @@ func (s *Scraper) Run(query string) error {
 	return nil
 }
 
-func (s *Scraper) fetchJobs(query string) ([]Job, error) {
+func (s *Scraper) fetchJobs(query string, tags []string) ([]Job, error) {
 	url := fmt.Sprintf(
 		"https://serpapi.com/search.json?engine=google_jobs&q=%s&api_key=%s",
 		url.QueryEscape(query), s.apiKey,
@@ -96,7 +96,7 @@ func (s *Scraper) fetchJobs(query string) ([]Job, error) {
 			Location:    j.Location,
 			URL:         j.ShareLink,
 			Description: j.Description,
-			Tags:        []string{},
+			Tags:        tags,
 			Source:      "serpapi",
 			PostedAt:    time.Now(),
 		})

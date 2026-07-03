@@ -4,7 +4,9 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 import { interviewApi, streamAiEngine } from '@/lib/api';
-import { Mic, Send, Loader2, ChevronRight, Award, ChevronLeft } from 'lucide-react';
+import { Mic, MicOff, Volume2, VolumeX, Send, Loader2, ChevronRight, Award, ChevronLeft } from 'lucide-react';
+import { MarkdownMessage } from '@/components/MarkdownMessage';
+import { useVoice } from '@/hooks/useVoice';
 
 const STAGES = [
   { id: 'BEHAVIORAL', label: 'Behavioral', description: 'Leadership, teamwork, conflict resolution' },
@@ -25,14 +27,15 @@ export default function MockInterviewPage() {
   const [loading, setLoading] = useState(false);
   const [feedbackLoading, setFeedbackLoading] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [voiceMode, setVoiceMode] = useState(false);
+  const { isSupported, isListening, isSpeaking, interimTranscript, startListening, stopListening, speakChunk, cancelSpeech } = useVoice();
 
-  const startStage = async (stageId: string) => {
+  const startStage = async (stageId: string, voice = false) => {
     setStage(stageId);
     setMessages([]);
     setFeedback(null);
     setLoading(true);
-    const initMsg = { role: 'assistant' as const, content: '' };
-    setMessages([initMsg]);
+    setMessages([{ role: 'assistant', content: '' }]);
     try {
       let text = '';
       for await (const chunk of streamAiEngine('/interview/message/stream', {
@@ -43,7 +46,9 @@ export default function MockInterviewPage() {
       })) {
         text += chunk;
         setMessages([{ role: 'assistant', content: text }]);
+        if (voice) speakChunk(chunk);
       }
+      if (voice) speakChunk('', true);
     } catch {
       setMessages([{ role: 'assistant', content: 'Could not start interview. Check that the AI engine is running.' }]);
     } finally {
@@ -51,10 +56,11 @@ export default function MockInterviewPage() {
     }
   };
 
-  const sendMessage = async () => {
-    if (!input.trim() || loading || !stage) return;
-    const userMessage = input.trim();
-    const newHistory = [...messages, { role: 'user' as const, content: userMessage }];
+  const sendMessage = async (voiceText?: string) => {
+    const userMessage = (voiceText ?? input).trim();
+    if (!userMessage || loading || !stage) return;
+    const snap = [...messages];
+    const newHistory = [...snap, { role: 'user' as const, content: userMessage }];
     setMessages([...newHistory, { role: 'assistant', content: '' }]);
     setInput('');
     setLoading(true);
@@ -63,12 +69,14 @@ export default function MockInterviewPage() {
       for await (const chunk of streamAiEngine('/interview/message/stream', {
         user_id: userId ?? 'anonymous',
         stage,
-        history: messages.map((m) => ({ role: m.role, content: m.content })),
+        history: snap.map((m) => ({ role: m.role, content: m.content })),
         message: userMessage,
       })) {
         text += chunk;
         setMessages([...newHistory, { role: 'assistant', content: text }]);
+        if (voiceText !== undefined) speakChunk(chunk);
       }
+      if (voiceText !== undefined) speakChunk('', true);
     } catch {
       setMessages([...newHistory, { role: 'assistant', content: 'Something went wrong.' }]);
     } finally {
@@ -170,7 +178,7 @@ export default function MockInterviewPage() {
               <Loader2 size={20} className="text-[#1B6CF2] animate-spin" />
             </div>
           )}
-          {messages.map((m, i) => (
+          {messages.filter((m) => m.role === 'user' || m.content !== '').map((m, i) => (
             <div key={i} className={`flex gap-3 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               {m.role === 'assistant' && (
                 <div className="w-7 h-7 rounded-lg bg-[#1B6CF2]/20 flex items-center justify-center shrink-0 mt-0.5">
@@ -180,11 +188,15 @@ export default function MockInterviewPage() {
               <div className={`max-w-[80%] px-4 py-3 rounded-xl text-sm leading-relaxed ${
                 m.role === 'user' ? 'bg-[#1B6CF2]/20 text-white/90 rounded-tr-sm' : 'bg-white/5 text-white/70 rounded-tl-sm'
               }`}>
-                {m.content}
+                {m.role === 'assistant' ? (
+                  <MarkdownMessage content={m.content} className="text-sm text-white/70" />
+                ) : (
+                  m.content
+                )}
               </div>
             </div>
           ))}
-          {loading && messages.length > 0 && (
+          {loading && messages.at(-1)?.content === '' && (
             <div className="flex gap-3">
               <div className="w-7 h-7 rounded-lg bg-[#1B6CF2]/20 flex items-center justify-center shrink-0">
                 <Loader2 size={13} className="text-[#1B6CF2] animate-spin" />
@@ -201,17 +213,57 @@ export default function MockInterviewPage() {
         </div>
         <div className="p-4 border-t border-white/5">
           <div className="flex gap-3">
-            <textarea value={input} onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-              placeholder="Type your answer..."
-              className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white/80 text-sm placeholder:text-white/20 resize-none focus:outline-none focus:border-[#1B6CF2]/50 transition-colors"
-              rows={2} />
-            <button onClick={sendMessage} disabled={!input.trim() || loading}
-              className="w-10 h-10 rounded-xl bg-[#1B6CF2] flex items-center justify-center self-end disabled:opacity-30 hover:bg-[#1B6CF2]/80 transition-colors">
-              <Send size={16} className="text-white" />
-            </button>
+            {voiceMode ? (
+              <div className="flex-1 flex flex-col items-center justify-center gap-2 py-1">
+                {loading ? (
+                  <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center">
+                    <Loader2 size={20} className="text-[#1B6CF2] animate-spin" />
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => isListening ? stopListening() : startListening((t) => sendMessage(t))}
+                    className={`w-16 h-16 rounded-full flex items-center justify-center transition-all ${
+                      isListening ? 'bg-red-500 shadow-[0_0_20px_rgba(239,68,68,0.5)] scale-110' : 'bg-[#1B6CF2] hover:bg-[#1B6CF2]/80'
+                    }`}
+                  >
+                    {isListening ? <MicOff size={24} className="text-white" /> : <Mic size={24} className="text-white" />}
+                  </button>
+                )}
+                {interimTranscript && (
+                  <p className="text-white/50 text-xs text-center max-w-[80%] italic">{interimTranscript}</p>
+                )}
+              </div>
+            ) : (
+              <textarea value={input} onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+                placeholder="Type your answer..."
+                className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white/80 text-sm placeholder:text-white/20 resize-none focus:outline-none focus:border-[#1B6CF2]/50 transition-colors"
+                rows={2} />
+            )}
+            {!voiceMode && (
+              <button onClick={() => sendMessage()} disabled={!input.trim() || loading}
+                className="w-10 h-10 rounded-xl bg-[#1B6CF2] flex items-center justify-center self-end disabled:opacity-30 hover:bg-[#1B6CF2]/80 transition-colors">
+                <Send size={16} className="text-white" />
+              </button>
+            )}
           </div>
-          <p className="text-white/20 text-xs mt-2">Enter to send · Shift+Enter for new line</p>
+          <div className="flex items-center justify-between mt-2">
+            <p className="text-white/20 text-xs">{voiceMode ? (loading ? 'AI is speaking...' : isListening ? 'Listening...' : 'Tap mic to speak') : 'Enter to send · Shift+Enter for new line'}</p>
+            <div className="flex items-center gap-2">
+              {voiceMode && isSpeaking && (
+                <button onClick={cancelSpeech} className="text-white/30 hover:text-white/60 transition-colors">
+                  <VolumeX size={14} />
+                </button>
+              )}
+              {isSupported && (
+                <button onClick={() => { setVoiceMode((v) => !v); cancelSpeech(); stopListening(); }}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-all ${voiceMode ? 'bg-[#1B6CF2]/20 text-[#1B6CF2]' : 'bg-white/5 text-white/30 hover:text-white/60'}`}>
+                  <Volume2 size={12} />
+                  Voice
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>

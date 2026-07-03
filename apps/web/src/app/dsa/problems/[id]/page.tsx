@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { MarkdownMessage } from '@/components/MarkdownMessage';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 import {
@@ -9,18 +10,9 @@ import {
   Separator as PanelResizeHandle,
 } from 'react-resizable-panels';
 import dynamic from 'next/dynamic';
-import { dsaApi, type DSAProblemDetail } from '@/lib/api';
-import {
-  ChevronLeft,
-  Send,
-  Loader2,
-  ChevronRight,
-  Play,
-  CheckCircle,
-  XCircle,
-  BotMessageSquare,
-  X,
-} from 'lucide-react';
+import { dsaApi, streamAiEngine, type DSAProblemDetail } from '@/lib/api';
+import { ChevronLeft, Send, Loader2, ChevronRight, Play, CheckCircle, XCircle, BotMessageSquare, X, Mic, MicOff, Volume2, VolumeX } from 'lucide-react';
+import { useVoice } from '@/hooks/useVoice';
 
 const MonacoEditor = dynamic(() => import('@monaco-editor/react'), {
   ssr: false,
@@ -67,6 +59,8 @@ export default function ProblemPage() {
   const [running, setRunning] = useState(false);
   const [execError, setExecError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [voiceMode, setVoiceMode] = useState(false);
+  const { isSupported, isListening, isSpeaking, interimTranscript, startListening, stopListening, speakChunk, cancelSpeech } = useVoice();
 
   useEffect(() => {
     dsaApi.getProblem(id)
@@ -150,26 +144,28 @@ export default function ProblemPage() {
     }
   };
 
-  const handleCoachSubmit = async () => {
-    if (!reasoning.trim() || loading) return;
-    const userMessage = reasoning.trim();
-    setMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
+  const handleCoachSubmit = async (voiceText?: string) => {
+    const userMessage = (voiceText ?? reasoning).trim();
+    if (!userMessage || loading) return;
+    setMessages((prev) => [...prev, { role: 'user', content: userMessage }, { role: 'assistant', content: '' }]);
     setReasoning('');
     setLoading(true);
     try {
-      const { data } = await dsaApi.reason({
+      let text = '';
+      for await (const chunk of streamAiEngine('/dsa/reason/stream', {
         user_id: userId ?? 'anonymous',
         problem_id: problem.id,
         problem_description: problem.description,
         user_reasoning: userMessage,
-      });
-      setMessages((prev) => [
-        ...prev,
-        { role: 'assistant', content: data.coaching },
-      ]);
+      })) {
+        text += chunk;
+        setMessages((prev) => [...prev.slice(0, -1), { role: 'assistant', content: text }]);
+        if (voiceText !== undefined) speakChunk(chunk);
+      }
+      if (voiceText !== undefined) speakChunk('', true);
     } catch {
       setMessages((prev) => [
-        ...prev,
+        ...prev.slice(0, -1),
         { role: 'assistant', content: 'AI engine unreachable.' },
       ]);
     } finally {
@@ -309,7 +305,7 @@ export default function ProblemPage() {
                             </p>
                           </div>
                         )}
-                        {messages.map((m, i) => (
+                        {messages.filter((m) => m.role === 'user' || m.content !== '').map((m, i) => (
                           <div
                             key={i}
                             className={`flex gap-2 ${
@@ -328,11 +324,15 @@ export default function ProblemPage() {
                                   : 'bg-white/5 text-white/60 rounded-tl-sm'
                               }`}
                             >
-                              {m.content}
+                              {m.role === 'assistant' ? (
+                                <MarkdownMessage content={m.content} className="text-xs text-white/60" />
+                              ) : (
+                                m.content
+                              )}
                             </div>
                           </div>
                         ))}
-                        {loading && (
+                        {loading && messages.at(-1)?.content === '' && (
                           <div className="flex gap-2">
                             <div className="w-5 h-5 rounded bg-[#1B6CF2]/20 flex items-center justify-center shrink-0">
                               <Loader2 size={10} className="text-[#1B6CF2] animate-spin" />
@@ -354,26 +354,67 @@ export default function ProblemPage() {
                       </div>
                       <div className="p-3 border-t border-white/5 shrink-0">
                         <div className="flex gap-2">
-                          <textarea
-                            value={reasoning}
-                            onChange={(e) => setReasoning(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' && !e.shiftKey) {
-                                e.preventDefault();
-                                handleCoachSubmit();
-                              }
-                            }}
-                            placeholder="Explain your approach..."
-                            className="flex-1 bg-white/5 border border-white/8 rounded-lg px-3 py-2 text-white/70 text-xs placeholder:text-white/20 resize-none focus:outline-none focus:border-[#1B6CF2]/40 transition-colors"
-                            rows={2}
-                          />
-                          <button
-                            onClick={handleCoachSubmit}
-                            disabled={!reasoning.trim() || loading}
-                            className="w-8 h-8 rounded-lg bg-[#1B6CF2] flex items-center justify-center self-end disabled:opacity-30 hover:bg-[#1B6CF2]/80 transition-colors shrink-0"
-                          >
-                            <Send size={13} className="text-white" />
-                          </button>
+                          {voiceMode ? (
+                            <div className="flex-1 flex flex-col items-center justify-center gap-1.5 py-1">
+                              {loading ? (
+                                <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center">
+                                  <Loader2 size={16} className="text-[#1B6CF2] animate-spin" />
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => isListening ? stopListening() : startListening((t) => handleCoachSubmit(t))}
+                                  className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
+                                    isListening ? 'bg-red-500 shadow-[0_0_16px_rgba(239,68,68,0.5)] scale-110' : 'bg-[#1B6CF2] hover:bg-[#1B6CF2]/80'
+                                  }`}
+                                >
+                                  {isListening ? <MicOff size={18} className="text-white" /> : <Mic size={18} className="text-white" />}
+                                </button>
+                              )}
+                              {interimTranscript && (
+                                <p className="text-white/50 text-xs text-center italic">{interimTranscript}</p>
+                              )}
+                            </div>
+                          ) : (
+                            <textarea
+                              value={reasoning}
+                              onChange={(e) => setReasoning(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                  e.preventDefault();
+                                  handleCoachSubmit();
+                                }
+                              }}
+                              placeholder="Explain your approach..."
+                              className="flex-1 bg-white/5 border border-white/8 rounded-lg px-3 py-2 text-white/70 text-xs placeholder:text-white/20 resize-none focus:outline-none focus:border-[#1B6CF2]/40 transition-colors"
+                              rows={2}
+                            />
+                          )}
+                          {!voiceMode && (
+                            <button
+                              onClick={() => handleCoachSubmit()}
+                              disabled={!reasoning.trim() || loading}
+                              className="w-8 h-8 rounded-lg bg-[#1B6CF2] flex items-center justify-center self-end disabled:opacity-30 hover:bg-[#1B6CF2]/80 transition-colors shrink-0"
+                            >
+                              <Send size={13} className="text-white" />
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-between mt-1.5">
+                          <p className="text-white/20 text-xs">{voiceMode ? (loading ? 'AI is speaking...' : isListening ? 'Listening...' : 'Tap mic to speak') : ''}</p>
+                          <div className="flex items-center gap-2">
+                            {voiceMode && isSpeaking && (
+                              <button onClick={cancelSpeech} className="text-white/30 hover:text-white/60 transition-colors">
+                                <VolumeX size={12} />
+                              </button>
+                            )}
+                            {isSupported && (
+                              <button onClick={() => { setVoiceMode((v) => !v); cancelSpeech(); stopListening(); }}
+                                className={`flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-all ${voiceMode ? 'bg-[#1B6CF2]/20 text-[#1B6CF2]' : 'bg-white/5 text-white/30 hover:text-white/50'}`}>
+                                <Volume2 size={11} />
+                                Voice
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>

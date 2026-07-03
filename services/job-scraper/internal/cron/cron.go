@@ -7,11 +7,17 @@ import (
 	"github.com/kingsleydaprime/btp/services/job-scraper/internal/scraper"
 )
 
-var queries = []string{
-	"software engineer big tech",
-	"backend engineer Google Microsoft Meta",
-	"ML engineer remote",
-	"DevOps engineer AWS",
+type queryConfig struct {
+	query string
+	tags  []string
+}
+
+var queries = []queryConfig{
+	{"software engineer big tech", []string{"Software Engineer"}},
+	{"backend engineer Google Microsoft Meta Apple Amazon", []string{"Backend"}},
+	{"frontend engineer Google Microsoft Meta Apple Amazon", []string{"Frontend"}},
+	{"ML engineer remote", []string{"ML Engineer"}},
+	{"DevOps engineer cloud AWS GCP Azure", []string{"DevOps"}},
 }
 
 type Scheduler struct {
@@ -40,8 +46,8 @@ func (c *Scheduler) runDaily() {
 
 func (c *Scheduler) ScrapeAll() {
 	for _, q := range queries {
-		if err := c.scraper.Run(q); err != nil {
-			log.Printf("scrape error for %q: %v", q, err)
+		if err := c.scraper.Run(q.query, q.tags); err != nil {
+			log.Printf("scrape error for %q: %v", q.query, err)
 		}
 	}
 }
@@ -49,11 +55,3 @@ func (c *Scheduler) ScrapeAll() {
 func (c *Scheduler) scrapeAll() {
 	c.ScrapeAll()
 }
-
-// func (c *Scheduler) scrapeAll() {
-// 	for _, q := range queries {
-// 		if err := c.scraper.Run(q); err != nil {
-// 			log.Printf("scrape error for %q: %v", q, err)
-// 		}
-// 	}
-// }

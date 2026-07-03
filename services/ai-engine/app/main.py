@@ -4,7 +4,7 @@ load_dotenv(find_dotenv())
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import dsa, interview, jobs
+from app.routes import dsa, interview, jobs, execute
 from app.services.vector_store import init_pool, close_pool
 
 
@@ -29,6 +29,7 @@ app.add_middleware(
 app.include_router(dsa.router, prefix="/v1")
 app.include_router(interview.router, prefix="/v1")
 app.include_router(jobs.router, prefix="/v1")
+app.include_router(execute.router, prefix="/v1")
 
 
 @app.get("/health")

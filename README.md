@@ -8,22 +8,22 @@ BTP helps you break into big tech through personalized DSA coaching, semantic jo
 
 - **Job Hunt** — daily job scraper that searches big tech openings and ranks them semantically against your profile
 - **DSA Lab** — Socratic AI coach that understands your reasoning patterns and builds your thinking, not just your answers
+- **Mock Interviews** — behavioral, technical, and system design sessions in three modes: standard AI coaching, cold-recruiter simulation, and AI-native (AI use allowed, 5-dimension scorecard)
 - **References** — DSA, system design, and interview references in one place
-- **Mock Interviews** — live behavioral, technical, and system design sessions with real-time AI feedback
-- **Gamification** — XP, streaks, badges, and progress heatmaps to keep you consistent
+- **Gamification** — XP, streaks, badges, and progress heatmaps *(coming in v1.1)*
 
 ## Stack
 
 | Layer | Technology |
 |---|---|
-| Web | Next.js 14, Tailwind CSS |
-| Gateway | NestJS, TypeScript |
-| AI Engine | Python, FastAPI, Claude API, LangChain |
+| Web | Next.js 16, Tailwind CSS |
+| Gateway | NestJS, TypeScript, Prisma |
+| AI Engine | Python, FastAPI, Claude API |
 | Job Scraper | Go |
-| Gamification | Rust |
-| Notifications | Go |
+| Gamification | Rust *(coming in v1.1)* |
+| Notifications | Go, Resend |
 | Database | PostgreSQL + pgvector |
-| Cache / Events | Redis |
+| Cache | Redis |
 | Monorepo | Nx + pnpm |
 | Infra | Docker, Kubernetes, Terraform |
 | CI/CD | GitHub Actions + Nx Cloud |
@@ -31,12 +31,12 @@ BTP helps you break into big tech through personalized DSA coaching, semantic jo
 ## Getting Started
 
 ### Prerequisites
+
 - Node.js 20+
 - pnpm
 - Docker + Docker Compose
 - Go 1.23+
 - Python 3.12+ + uv
-- Rust (latest stable)
 
 ### Local Setup
 
@@ -48,19 +48,38 @@ cd btp
 # Install dependencies
 pnpm install
 
-# Copy env
+# Copy env and fill in your keys
 cp .env.example .env
-# Fill in your keys
 
-# Start infrastructure
+# Start all services (recommended)
+docker compose -f docker-compose.dev.yml up
+```
+
+Or start services individually:
+
+```bash
+# Infrastructure only
 docker compose up postgres redis -d
 
-# Start gateway
+# Gateway
 pnpm nx serve gateway
 
-# Start web
-pnpm nx dev web
+# Web
+pnpm nx serve web
+
+# AI engine
+cd apps/ai-engine && uv run uvicorn main:app --reload
 ```
+
+### Required environment variables
+
+| Variable | Purpose |
+|---|---|
+| `CLERK_SECRET_KEY` / `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Auth |
+| `ANTHROPIC_API_KEY` | AI engine |
+| `VOYAGE_API_KEY` | Semantic embeddings |
+| `SERPAPI_KEY` | Job scraper *(optional — scraper disabled without it)* |
+| `RESEND_API_KEY` | Email notifications *(optional)* |
 
 ## Contributing
 
@@ -72,4 +91,4 @@ Apache 2.0 — see [LICENSE](./LICENSE)
 
 ---
 
-Built with by [Spectroniq Limited](https://spectroniq.vercel.app)
+Built with ♥ by [Spectroniq Limited](https://spectroniqlimited.com)

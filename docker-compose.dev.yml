@@ -57,6 +57,7 @@ services:
       DATABASE_URL: postgresql://btp:btp_secret@postgres:5432/btp_db?sslmode=disable
       REDIS_URL: redis://redis:6379
       AI_ENGINE_URL: http://ai-engine:8000
+      CODE_EXEC_URL: http://ai-engine:8000/v1/piston/execute
       JOB_SCRAPER_URL: http://job-scraper:8080
       NOTIFICATIONS_URL: http://notifications:8082
       PORT: "3001"

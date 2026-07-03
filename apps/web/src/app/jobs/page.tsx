@@ -70,9 +70,13 @@ export default function JobsPage() {
   const filtered =
     activeFilter === 'All'
       ? jobs
-      : jobs.filter((j: any) =>
-          j.title.toLowerCase().includes(activeFilter.toLowerCase())
-        );
+      : jobs.filter((j: any) => {
+          const term = activeFilter.toLowerCase();
+          return (
+            j.title.toLowerCase().includes(term) ||
+            j.tags?.some((t: string) => t.toLowerCase().includes(term))
+          );
+        });
 
   return (
     <div className="space-y-6">

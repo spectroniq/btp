@@ -1,0 +1,13 @@
+// ── References ────────────────────────────────────────
+model Reference {
+  id         String @id @default(uuid())
+  category   String
+  title      String
+  complexity String
+  when       String
+  summary    String
+  order      Int    @default(0)
+
+  @@map("references")
+  @@index([category])
+}

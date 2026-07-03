@@ -1,0 +1,182 @@
+{
+  "DSA": [
+    {
+      "title": "Two Pointers",
+      "complexity": "O(n) time · O(1) space",
+      "when": "Sorted arrays, palindromes, pair problems",
+      "summary": "Use two indices moving toward each other or in the same direction. Eliminates the need for nested loops on sorted data."
+    },
+    {
+      "title": "Sliding Window",
+      "complexity": "O(n) time · O(k) space",
+      "when": "Subarrays, substrings, fixed/variable window",
+      "summary": "Maintain a window of elements and expand/shrink as you traverse. Avoids recomputing overlapping subproblems."
+    },
+    {
+      "title": "Binary Search",
+      "complexity": "O(log n) time · O(1) space",
+      "when": "Sorted arrays, search space reduction, min/max problems",
+      "summary": "Halve the search space each iteration. Can be applied on the answer space, not just arrays."
+    },
+    {
+      "title": "BFS",
+      "complexity": "O(V+E) time · O(V) space",
+      "when": "Shortest path, level order traversal, graph exploration",
+      "summary": "Uses a queue. Explores nodes level by level. Always finds shortest path in unweighted graphs."
+    },
+    {
+      "title": "DFS",
+      "complexity": "O(V+E) time · O(V) space",
+      "when": "Connected components, cycle detection, topological sort",
+      "summary": "Uses recursion or stack. Goes deep before backtracking. Good for exhaustive search."
+    },
+    {
+      "title": "Dynamic Programming",
+      "complexity": "Varies",
+      "when": "Overlapping subproblems, optimal substructure",
+      "summary": "Break problem into subproblems, store results to avoid recomputation. Think: can I define this recursively? Can I cache?"
+    },
+    {
+      "title": "Backtracking",
+      "complexity": "O(b^d) time · O(d) space",
+      "when": "Permutations, combinations, constraint satisfaction",
+      "summary": "Build candidates incrementally and abandon ('backtrack') as soon as a candidate cannot lead to a valid solution."
+    },
+    {
+      "title": "Heap / Priority Queue",
+      "complexity": "O(log n) push/pop · O(1) peek",
+      "when": "Top-k elements, median streaming, Dijkstra",
+      "summary": "Use a min-heap for smallest-first, max-heap for largest-first. Python's heapq is min by default; negate values for max."
+    },
+    {
+      "title": "Union-Find",
+      "complexity": "O(α(n)) per operation",
+      "when": "Connected components, cycle detection in undirected graphs",
+      "summary": "Track component membership with path compression and union by rank. Near-constant time per operation at scale."
+    },
+    {
+      "title": "Trie",
+      "complexity": "O(m) insert/search where m = word length",
+      "when": "Prefix search, autocomplete, word dictionaries",
+      "summary": "Tree where each node is a character. Efficient for prefix-based lookups that hash maps can't handle naturally."
+    },
+    {
+      "title": "Monotonic Stack",
+      "complexity": "O(n) time · O(n) space",
+      "when": "Next greater/smaller element, histogram problems",
+      "summary": "Stack where elements are always increasing or decreasing. Pop when the invariant would be violated — that pop is your answer."
+    },
+    {
+      "title": "Fast & Slow Pointers",
+      "complexity": "O(n) time · O(1) space",
+      "when": "Cycle detection in linked lists, finding middle node",
+      "summary": "Slow moves one step, fast moves two. They meet inside a cycle. If fast reaches null, there is no cycle."
+    }
+  ],
+  "System Design": [
+    {
+      "title": "Load Balancer",
+      "complexity": "—",
+      "when": "Distributing traffic across servers",
+      "summary": "Routes requests to servers using algorithms like round robin, least connections, or IP hash. Prevents any single server from being overwhelmed."
+    },
+    {
+      "title": "Caching",
+      "complexity": "—",
+      "when": "Reducing latency, reducing DB load",
+      "summary": "Store frequently accessed data in fast storage (Redis, Memcached). Consider: cache-aside, write-through, write-behind. Always think about invalidation."
+    },
+    {
+      "title": "Database Sharding",
+      "complexity": "—",
+      "when": "Horizontal scaling of databases",
+      "summary": "Split data across multiple DB instances by a shard key. Enables horizontal scaling but complicates joins and transactions."
+    },
+    {
+      "title": "Message Queue",
+      "complexity": "—",
+      "when": "Async processing, decoupling services",
+      "summary": "Services communicate via messages rather than direct calls. Enables retries, rate limiting, and decoupling. Examples: Kafka, RabbitMQ, Redis Pub/Sub."
+    },
+    {
+      "title": "CDN",
+      "complexity": "—",
+      "when": "Static assets, global latency reduction",
+      "summary": "Cache static content at edge nodes close to users. Reduces origin server load and improves global latency significantly."
+    },
+    {
+      "title": "Rate Limiting",
+      "complexity": "—",
+      "when": "Abuse prevention, API quotas, fair usage",
+      "summary": "Token bucket: smooth bursts. Leaky bucket: constant output rate. Sliding window: most accurate. Implement at the gateway, not inside services."
+    },
+    {
+      "title": "Consistent Hashing",
+      "complexity": "—",
+      "when": "Distributed caches, partitioning with dynamic node count",
+      "summary": "Map nodes and keys to a ring. Adding/removing a node only remaps 1/n of keys instead of all of them. Virtual nodes improve balance."
+    },
+    {
+      "title": "SQL vs NoSQL",
+      "complexity": "—",
+      "when": "Every system design — justify your choice",
+      "summary": "SQL: ACID, relations, structured schema. NoSQL: flexible schema, horizontal scale, eventual consistency. Pick based on query patterns, not hype."
+    },
+    {
+      "title": "Replication",
+      "complexity": "—",
+      "when": "High availability, read scaling",
+      "summary": "Leader–follower: writes go to leader, reads can go to replicas. Multi-leader: for geo-distributed writes. Leaderless (Dynamo style): highest availability."
+    },
+    {
+      "title": "CAP Theorem",
+      "complexity": "—",
+      "when": "Justifying consistency vs availability trade-offs",
+      "summary": "Consistency, Availability, Partition Tolerance — pick two. In practice, partitions happen, so choose CP (banks) or AP (social feeds) intentionally."
+    }
+  ],
+  "Behavioral": [
+    {
+      "title": "STAR Framework",
+      "complexity": "—",
+      "when": "All behavioral questions",
+      "summary": "Situation → Task → Action → Result. Keep Situation and Task brief. Spend most time on Action (what YOU did) and Result (quantified impact)."
+    },
+    {
+      "title": "Leadership Signals",
+      "complexity": "—",
+      "when": "\"Tell me about a time you led...\"",
+      "summary": "Show initiative, influence without authority, and decision-making under ambiguity. Quantify team size and outcomes."
+    },
+    {
+      "title": "Conflict Resolution",
+      "complexity": "—",
+      "when": "\"Tell me about a disagreement...\"",
+      "summary": "Show empathy, data-driven reasoning, and positive outcomes. Never blame. Focus on how you aligned toward a shared goal."
+    },
+    {
+      "title": "Failure Stories",
+      "complexity": "—",
+      "when": "\"Tell me about a mistake...\"",
+      "summary": "Own it fully. Show what you learned and what changed after. Interviewers want self-awareness and growth mindset."
+    },
+    {
+      "title": "Why This Company",
+      "complexity": "—",
+      "when": "Closing questions",
+      "summary": "Be specific — reference their products, engineering culture, or recent launches. Generic answers are a red flag."
+    },
+    {
+      "title": "Ownership & Bias for Action",
+      "complexity": "—",
+      "when": "Amazon LP questions, any 'what did you do when blocked' prompt",
+      "summary": "Show you acted without being told to. Quantify the unblocking. Distinguish between calculated risks you took and situations where you escalated correctly."
+    },
+    {
+      "title": "Ambiguity & Prioritization",
+      "complexity": "—",
+      "when": "\"How do you handle competing priorities?\"",
+      "summary": "Show a framework: impact vs effort, stakeholder alignment, explicit trade-off communication. Avoid 'I just work harder' — that's not an answer."
+    }
+  ]
+}

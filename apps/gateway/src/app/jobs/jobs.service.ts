@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../shared/prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { InAppNotificationsService } from '../notifications/in-app-notifications.service';
 import { CreateJobDto } from './dto/create-job.dto';
 
 @Injectable()
@@ -10,6 +11,7 @@ export class JobsService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
+    private inApp: InAppNotificationsService,
   ) {}
 
   async createMany(jobs: CreateJobDto[]) {
@@ -23,8 +25,13 @@ export class JobsService {
 
     if (result.count > 0) {
       this.logger.log(`Ingested ${result.count} new jobs — sending digest`);
-      // Fire-and-forget: don't await, don't let errors surface to the caller
       this.sendJobDigest(jobs).catch(() => {});
+      const n = result.count;
+      this.inApp.createForAllUsers(
+        'jobs',
+        `${n} new job${n > 1 ? 's' : ''} added`,
+        `${n} new listing${n > 1 ? 's' : ''} just landed. Check them out in Job Hunt.`,
+      ).catch(() => {});
     }
 
     return result;
