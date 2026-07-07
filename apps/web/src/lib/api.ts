@@ -28,6 +28,7 @@ export const setTokenGetter = (getToken: () => Promise<string | null>) => {
 export async function* streamAiEngine(
   endpoint: string,
   payload: unknown,
+  signal?: AbortSignal,
 ): AsyncGenerator<string> {
   const token = _tokenGetter ? await _tokenGetter() : null;
   const res = await fetch(
@@ -40,6 +41,7 @@ export async function* streamAiEngine(
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify(payload),
+      signal,
     }
   );
   if (!res.ok || !res.body) throw new Error(`AI engine error: ${res.status}`);
@@ -139,6 +141,7 @@ export const dsaApi = {
     problem_id: string;
     problem_description: string;
     user_reasoning: string;
+    user_code?: string;
   }) => aiEngine.post('/dsa/reason', payload),
 
   getStats: () => gateway.get<{ solved: number; attempts: number; streak: number; patternsLearned: number }>('/dsa/stats'),
@@ -149,6 +152,7 @@ export const dsaApi = {
   }) =>
     gateway.post<{
       results: { pass: boolean; actual: string; expected: string; error?: string }[];
+      stdout?: string;
       error?: string;
     }>('/dsa/execute', payload),
 

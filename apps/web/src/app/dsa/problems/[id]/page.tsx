@@ -58,7 +58,10 @@ export default function ProblemPage() {
   const [testResults, setTestResults] = useState<TestResult[]>([]);
   const [running, setRunning] = useState(false);
   const [execError, setExecError] = useState<string | null>(null);
+  const [execStdout, setExecStdout] = useState<string>('');
+  const [solved, setSolved] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const coachAbortRef = useRef<AbortController | null>(null);
   const [voiceMode, setVoiceMode] = useState(false);
   const { isSupported, isListening, isSpeaking, interimTranscript, startListening, stopListening, speakChunk, cancelSpeech } = useVoice();
 
@@ -74,6 +77,10 @@ export default function ProblemPage() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    return () => { coachAbortRef.current?.abort(); };
+  }, []);
 
   if (fetchError) {
     return (
@@ -91,31 +98,30 @@ export default function ProblemPage() {
     );
   }
 
-  const runCode = async (): Promise<TestResult[]> => {
-    const { data } = await dsaApi.execute({
-      code,
-      testCases: problem.testCases,
-    });
-    if (data.error) {
-      setExecError(data.error);
-      return [];
-    }
-    setExecError(null);
-    return data.results.map((r, i) => ({
-      input: JSON.stringify(problem.testCases[i]?.input),
-      expected: r.expected,
+  const mapResults = (results: { pass: boolean; actual: string; expected: string; error?: string }[], testCases: typeof problem.testCases): TestResult[] =>
+    results.map((r, i) => ({
+      input: JSON.stringify(testCases[i]?.input),
+      expected: r.expected ?? '—',
       status: r.pass ? 'pass' : 'fail',
     }));
-  };
 
   const handleRun = async () => {
     setRunning(true);
     setActiveTab('results');
+    setExecError(null);
+    setExecStdout('');
+    setTestResults([]);
     try {
-      const results = await runCode();
-      setTestResults(results);
+      const { data } = await dsaApi.execute({ code, testCases: problem.testCases.slice(0, 1) });
+      setExecStdout(data.stdout ?? '');
+      if (data.error) {
+        setExecError(data.error);
+        return;
+      }
+      setTestResults(mapResults(data.results, problem.testCases));
     } catch {
       setExecError('Execution service unreachable.');
+      setExecStdout('');
     } finally {
       setRunning(false);
     }
@@ -123,22 +129,38 @@ export default function ProblemPage() {
 
   const handleSubmit = async () => {
     setRunning(true);
+    setSolved(false);
     setActiveTab('results');
+    setExecError(null);
+    setExecStdout('');
+    setTestResults([]);
     try {
-      const results = await runCode();
+      const { data } = await dsaApi.execute({ code, testCases: problem.testCases });
+      setExecStdout(data.stdout ?? '');
+      if (data.error) {
+        setExecError(data.error);
+        return;
+      }
+      const results = mapResults(data.results, problem.testCases);
       setTestResults(results);
       const allPass = results.length > 0 && results.every((r) => r.status === 'pass');
       if (allPass && userId) {
-        await dsaApi.solve({
-          slug: problem.slug,
-          title: problem.title,
-          difficulty: problem.difficulty,
-          topic: problem.topic,
-          code,
-        });
+        try {
+          await dsaApi.solve({
+            slug: problem.slug,
+            title: problem.title,
+            difficulty: problem.difficulty,
+            topic: problem.topic,
+            code,
+          });
+          setSolved(true);
+        } catch {
+          // solve record failed — tests still passed, don't surface as execution error
+        }
       }
     } catch {
       setExecError('Execution service unreachable.');
+      setExecStdout('');
     } finally {
       setRunning(false);
     }
@@ -147,6 +169,11 @@ export default function ProblemPage() {
   const handleCoachSubmit = async (voiceText?: string) => {
     const userMessage = (voiceText ?? reasoning).trim();
     if (!userMessage || loading) return;
+
+    coachAbortRef.current?.abort();
+    const controller = new AbortController();
+    coachAbortRef.current = controller;
+
     setMessages((prev) => [...prev, { role: 'user', content: userMessage }, { role: 'assistant', content: '' }]);
     setReasoning('');
     setLoading(true);
@@ -157,13 +184,15 @@ export default function ProblemPage() {
         problem_id: problem.id,
         problem_description: problem.description,
         user_reasoning: userMessage,
-      })) {
+        user_code: code,
+      }, controller.signal)) {
         text += chunk;
         setMessages((prev) => [...prev.slice(0, -1), { role: 'assistant', content: text }]);
         if (voiceText !== undefined) speakChunk(chunk);
       }
       if (voiceText !== undefined) speakChunk('', true);
-    } catch {
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return;
       setMessages((prev) => [
         ...prev.slice(0, -1),
         { role: 'assistant', content: 'AI engine unreachable.' },
@@ -444,7 +473,7 @@ export default function ProblemPage() {
                       language="python"
                       theme="vs-dark"
                       value={code}
-                      onChange={(v) => setCode(v ?? '')}
+                      onChange={(v) => { setCode(v ?? ''); setSolved(false); }}
                       options={{
                         fontSize: 13,
                         minimap: { enabled: false },
@@ -484,10 +513,16 @@ export default function ProblemPage() {
                   <div className="flex-1 overflow-y-auto p-4">
                     {activeTab === 'results' && (
                       <div className="space-y-2">
+                        {solved && !running && (
+                          <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-[#10B981]/10 border border-[#10B981]/20">
+                            <CheckCircle size={14} className="text-[#10B981] shrink-0" />
+                            <span className="text-[#10B981] text-xs font-medium">Accepted — solution recorded!</span>
+                          </div>
+                        )}
                         {running && (
                           <div className="flex items-center gap-2 text-white/30 text-xs">
                             <Loader2 size={12} className="animate-spin" />
-                            Running test cases...
+                            Running...
                           </div>
                         )}
                         {!running && execError && (
@@ -542,9 +577,9 @@ export default function ProblemPage() {
                       </div>
                     )}
                     {activeTab === 'output' && (
-                      <p className="text-white/20 text-xs font-mono">
-                        Raw stdout appears here after running.
-                      </p>
+                      <pre className="text-white/70 text-xs font-mono whitespace-pre-wrap">
+                        {execStdout || <span className="text-white/20">Run your code to see output.</span>}
+                      </pre>
                     )}
                   </div>
                 </div>

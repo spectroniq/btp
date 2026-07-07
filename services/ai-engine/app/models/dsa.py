@@ -6,6 +6,7 @@ class ReasonRequest(BaseModel):
     problem_id: str
     problem_description: str
     user_reasoning: str
+    user_code: str = ""
 
 
 class ReasonResponse(BaseModel):

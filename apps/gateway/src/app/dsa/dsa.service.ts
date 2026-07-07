@@ -64,6 +64,8 @@ export class DsaService {
   }
 
   async executeCode(code: string, testCases: { input: unknown; expected: unknown }[]) {
+    const pistonUrl = process.env['CODE_EXEC_URL'] ?? 'https://emkc.org/api/v2/piston/execute';
+
     const fnMatch = code.match(/^def\s+(\w+)\s*\(/m);
     const fnName = fnMatch?.[1] ?? 'solution';
 
@@ -75,17 +77,15 @@ _test_cases = ${JSON.stringify(testCases)}
 _fn = ${fnName}
 _results = []
 for _tc in _test_cases:
+    _expected = _tc["expected"]
     try:
         _args = _tc["input"] if isinstance(_tc["input"], list) else [_tc["input"]]
         _result = _fn(*_args)
-        _expected = _tc["expected"]
         _results.append({"pass": _result == _expected, "actual": str(_result), "expected": str(_expected)})
     except Exception as _e:
-        _results.append({"pass": False, "error": str(_e)})
+        _results.append({"pass": False, "error": str(_e), "expected": str(_expected)})
 print("__BTP__:" + _json.dumps(_results))
 `;
-
-    const pistonUrl = process.env['CODE_EXEC_URL'] ?? 'https://emkc.org/api/v2/piston/execute';
 
     let res: Response;
     try {
@@ -116,16 +116,22 @@ print("__BTP__:" + _json.dumps(_results))
       throw new InternalServerErrorException('Unexpected response from code execution service');
     }
 
-    const match = data.run.stdout.match(/__BTP__:(.+)/);
+    const rawStdout = data.run.stdout;
+    // Take the LAST sentinel to prevent user code from spoofing an earlier one
+    const allMatches = [...rawStdout.matchAll(/__BTP__:(.+)/g)];
+    const match = allMatches.at(-1) ?? null;
+    // Strip ALL sentinel lines (g flag) so none leak into the output tab
+    const userStdout = rawStdout.replace(/__BTP__:.+(\n|$)/g, '').trimEnd();
+
     if (!match) {
-      const errorMsg = data.run.stderr?.trim() || data.run.stdout.trim() || 'Execution produced no output';
-      return { results: [], error: errorMsg };
+      const errorMsg = data.run.stderr?.trim() || rawStdout.trim() || 'Execution produced no output';
+      return { results: [], stdout: userStdout, error: errorMsg };
     }
     try {
       const results = JSON.parse(match[1]);
-      return { results };
+      return { results, stdout: userStdout };
     } catch {
-      return { results: [], error: 'Failed to parse execution output' };
+      return { results: [], stdout: userStdout, error: 'Failed to parse execution output' };
     }
   }
 

@@ -22,6 +22,7 @@ async def reason(req: ReasonRequest):
         coaching = await coach_dsa(
             problem=req.problem_description,
             user_reasoning=req.user_reasoning,
+            user_code=req.user_code,
             past_patterns=past_patterns,
         )
         await save_attempt(
@@ -55,6 +56,7 @@ async def reason_stream(req: ReasonRequest):
                 async for text in stream_coach_dsa(
                     problem=req.problem_description,
                     user_reasoning=req.user_reasoning,
+                    user_code=req.user_code,
                     past_patterns=past_patterns,
                 ):
                     yield f"data: {json.dumps({'text': text})}\n\n"

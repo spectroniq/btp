@@ -44,36 +44,50 @@ def _parse_json(text: str) -> dict:
 
 # ── DSA ──────────────────────────────────────────────────────────────────────
 
-async def coach_dsa(problem: str, user_reasoning: str, past_patterns: list[dict]) -> str:
+async def coach_dsa(problem: str, user_reasoning: str, user_code: str, past_patterns: list[dict]) -> str:
     past_context = ""
     if past_patterns:
         past_context = "\n\nUser's past reasoning patterns on similar problems:\n"
         for i, p in enumerate(past_patterns, 1):
             past_context += f"{i}. {p['reasoning'][:300]}\n"
+
+    code_section = _code_section(user_code)
 
     response = await client.chat.completions.create(
         model=MODEL,
         max_tokens=1000,
         messages=_msgs(DSA_COACH_SYSTEM, [
-            {"role": "user", "content": f"Problem:\n{problem}\n\nMy reasoning:\n{user_reasoning}{past_context}"},
+            {"role": "user", "content": f"Problem:\n{problem}{code_section}\n\nMy reasoning:\n{user_reasoning}{past_context}"},
         ]),
     )
     return response.choices[0].message.content
 
 
-async def stream_coach_dsa(problem: str, user_reasoning: str, past_patterns: list[dict]):
+def _code_section(user_code: str, max_lines: int = 150) -> str:
+    if not user_code.strip():
+        return ""
+    lines = user_code.splitlines()
+    truncated = "\n".join(lines[:max_lines])
+    if len(lines) > max_lines:
+        truncated += f"\n# ... ({len(lines) - max_lines} more lines not shown)"
+    return f"\n\nUser's current code:\n```python\n{truncated}\n```"
+
+
+async def stream_coach_dsa(problem: str, user_reasoning: str, user_code: str, past_patterns: list[dict]):
     past_context = ""
     if past_patterns:
         past_context = "\n\nUser's past reasoning patterns on similar problems:\n"
         for i, p in enumerate(past_patterns, 1):
             past_context += f"{i}. {p['reasoning'][:300]}\n"
+
+    code_section = _code_section(user_code)
 
     stream = await client.chat.completions.create(
         model=MODEL,
         max_tokens=1000,
         stream=True,
         messages=_msgs(DSA_COACH_SYSTEM, [
-            {"role": "user", "content": f"Problem:\n{problem}\n\nMy reasoning:\n{user_reasoning}{past_context}"},
+            {"role": "user", "content": f"Problem:\n{problem}{code_section}\n\nMy reasoning:\n{user_reasoning}{past_context}"},
         ]),
     )
     async for chunk in stream:
